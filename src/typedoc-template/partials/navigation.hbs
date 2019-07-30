@@ -4,11 +4,7 @@
             <span>{{{wbr title}}}</span>
         </li>
     {{else}}
-        {{#if isGlobals}}
-            <li class="globals {{#if isInPath}}current{{/if}} {{cssClasses}}">
-                <a href="{{relativeURL url}}">{{{wbr title}}}</a>
-            </li>
-        {{else}}
+        {{#unless isGlobals}}
             <li class="{{#if isInPath}}current{{/if}} {{cssClasses}}">
                 <a href="{{relativeURL url}}">{{{wbr title}}}</a>
                 {{#if isInPath}}
@@ -21,6 +17,6 @@
                     {{/if}}
                 {{/if}}
             </li>
-        {{/if}}
+        {{/unless}}
     {{/if}}
 {{/if}}

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import * as childprocess from 'child_process';
 import * as path from 'path';
+import * as fs from 'fs';
 
 import * as program from 'commander';
 
@@ -137,7 +138,7 @@ function startTestRunner(type: JestMode, args: CLITestArguments) {
     /**
      * Pushes in the colors argument if requested
      */
-    if (!sanitizedArgs.noColor){
+    if (!sanitizedArgs.noColor) {
         jestArgs.push('--colors');
     }
 
@@ -164,7 +165,7 @@ function startTestRunner(type: JestMode, args: CLITestArguments) {
 
     if (type === 'int') {
         runIntegrationTests(jestArgs, sanitizedArgs);
-    } else if (type ==='unit') {
+    } else if (type === 'unit') {
         runUnitTests(jestArgs);
     } else {
         console.log('Invalid test type.  Use "int" or "unit"');
@@ -214,6 +215,8 @@ function runEsLintCommand(fix: boolean) {
  * Generates typedoc
  */
 function generateTypedoc() {
+    const docsHomePage = path.resolve('./docs/DOCS.md');
+    const readme = fs.existsSync(docsHomePage) ? docsHomePage : 'none';
     const config = getProjectConfig();
     const [typedocCmd, themeDir, outDir, tsConfig] = [
         './node_modules/.bin/typedoc',
@@ -221,6 +224,6 @@ function generateTypedoc() {
         './dist/docs/api',
         './src/client/tsconfig.json'
     ].map(filePath => path.resolve(filePath));
-    const cmd = `"${typedocCmd}" --name "OpenFin ${config.SERVICE_TITLE}" --theme "${themeDir}" --out "${outDir}" --excludeNotExported --excludePrivate --excludeProtected --hideGenerator --tsconfig "${tsConfig}" --readme none`; // eslint-disable-line
+    const cmd = `"${typedocCmd}" --name "OpenFin ${config.SERVICE_TITLE}" --theme "${themeDir}" --out "${outDir}" --excludeNotExported --excludePrivate --excludeProtected --hideGenerator --tsconfig "${tsConfig}" --readme ${readme}`; // eslint-disable-line
     childprocess.execSync(cmd, {stdio: 'inherit'});
 }
