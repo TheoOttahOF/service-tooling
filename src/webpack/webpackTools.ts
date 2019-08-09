@@ -32,7 +32,7 @@ export interface CustomWebpackOptions extends webpack.Options.Optimization {
 /**
  * Shared function to create a webpack config for an entry point
  */
-export function createConfig(outPath: string, entryPoint: string, options: CustomWebpackOptions, ...plugins: webpack.Plugin[]) {
+export function createConfig(outPath: string, entryPoint: string | webpack.Entry, options: CustomWebpackOptions, ...plugins: webpack.Plugin[]) {
     const config: webpack.Configuration = {
         entry: entryPoint,
         optimization: {minimize: !options || options.minify !== false},
