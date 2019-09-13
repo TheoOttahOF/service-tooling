@@ -2,7 +2,7 @@ import {platform} from 'os';
 
 import fetch from 'node-fetch';
 import * as express from 'express';
-import {connect, launch} from 'hadouken-js-adapter';
+import {connect, launch, Application} from 'hadouken-js-adapter';
 
 import {CLIArguments} from '../types';
 import {getProjectConfig} from '../utils/getProjectConfig';
@@ -84,15 +84,18 @@ export async function startApplication(args: CLIArguments) {
         const manifestPath = 'demo/app.json';
         const manifestUrl = `http://localhost:${PORT}/${manifestPath}`;
 
-        const fetchRequest = await fetch(getProviderUrl(args.providerVersion)).catch((err: string) => {
+        const demoFetchRequest = await fetch(manifestUrl);
+        const serviceFetchRequest = await fetch(getProviderUrl(args.providerVersion)).catch((err: string) => {
             throw new Error(err);
         });
 
-        if (fetchRequest.status === 200) {
-            const providerManifestContent = await fetchRequest.json();
+        if (serviceFetchRequest.status === 200 && demoFetchRequest.status === 200) {
+            const demoManifest = await demoFetchRequest.json();
+            const providerManifestContent = await serviceFetchRequest.json();
             console.log('Launching application');
 
             connect({uuid: 'wrapper', manifestUrl}).then(async fin => {
+                const demo = fin.Application.wrapSync({uuid: demoManifest.startup_app.uuid, name: demoManifest.startup_app.name});
                 const service =
                     fin.Application.wrapSync({uuid: `${providerManifestContent.startup_app.uuid}`, name: `${providerManifestContent.startup_app.name}`});
 
@@ -101,15 +104,32 @@ export async function startApplication(args: CLIArguments) {
                     .addListener(
                         'closed',
                         async () => {
-                            process.exit(0);
+                            process.exit();
                         }
                     )
                     .catch(console.error);
+
+                // Fix for Windows 10 not killing the demo apps on SIGINT
+                const signals: ('exit' | NodeJS.Signals)[] = ['exit', 'SIGINT', 'SIGTERM'];
+                signals.forEach((sig) => {
+                    // @ts-ignore type error on exit
+                    process.on(sig, () => cleanup([demo]));
+                });
+
+                process.stdin.resume();
             }, console.error);
         } else {
-            throw new Error(`Invalid response from server:  Status code: ${fetchRequest.status}`);
+            throw new Error(`Invalid response from server:  Status code: ${serviceFetchRequest.status}`);
         }
     } else {
         console.log('Local server running');
     }
+}
+
+function cleanup(apps: Application[]) {
+    Promise.all(apps.map(app => app.quit()))
+        .then(() => {
+            process.exit(0);
+        })
+        .catch();
 }

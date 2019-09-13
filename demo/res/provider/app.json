@@ -5,12 +5,12 @@
         "url": "https://cdn.openfin.co/services/openfin/test/provider.html",
         "uuid": "test-service",
         "autoShow": true,
-        "showTaskbarIcon": false,
+        "showTaskbarIcon": true,
         "defaultHeight": 400,
         "defaultWidth": 500
     },
     "runtime": {
         "arguments": "--enable-aggressive-domstorage-flushing",
-        "version": "9.61.38.40"
+        "version": "stable"
     }
 }
