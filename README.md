@@ -36,6 +36,10 @@ Extracts out common build and server components which can be shared across diffe
 
     Zips the project.
 
+* **svc-tools asar**
+
+
+    Creates and signs asar of the project.
 
 * **Exports**
 
