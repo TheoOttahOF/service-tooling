@@ -28,7 +28,7 @@ interface ServiceDeclaration {
  * to the command-line options of this utility.
  */
 export function createAppJsonMiddleware(providerVersion: string, runtimeVersion?: string): RequestHandler {
-    const {PORT, SERVICE_NAME, CDN_LOCATION} = getProjectConfig();
+    const {PORT, NAME, CDN_LOCATION} = getProjectConfig();
 
     return async (req: Request, res: Response, next: NextFunction) => {
         const configPath = req.params[0];            // app.json path, relative to 'res' dir
@@ -45,7 +45,7 @@ export function createAppJsonMiddleware(providerVersion: string, runtimeVersion?
             return;
         }
 
-        const serviceDefinition = (config.services || []).find((service) => service.name === SERVICE_NAME);
+        const serviceDefinition = (config.services || []).find((service) => service.name === NAME);
         const startupUrl = config.startup_app.url;
 
         // Edit manifest
@@ -75,7 +75,7 @@ export function createAppJsonMiddleware(providerVersion: string, runtimeVersion?
  * re-writing existing demo/provider manifests.
  */
 export function createCustomManifestMiddleware(): RequestHandler {
-    const {PORT, SERVICE_NAME} = getProjectConfig();
+    const {PORT, NAME} = getProjectConfig();
 
     return async (req, res, next) => {
         const defaultConfig = await getJsonFile<ManifestFile>(path.resolve('./res/demo/app.json')).catch(next);
@@ -146,7 +146,7 @@ export function createCustomManifestMiddleware(): RequestHandler {
             shortcut
         };
         if (useService) {
-            const service: ServiceDeclaration = {name: `${SERVICE_NAME}`};
+            const service: ServiceDeclaration = {name: `${NAME}`};
 
             if (provider !== 'default') {
                 service.manifestUrl = getProviderUrl(provider);

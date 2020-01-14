@@ -1,5 +1,6 @@
 {
     "PORT": 42319,
-    "SERVICE_NAME": "test",
+    "NAME": "test",
+    "TITLE": "Test",
     "CDN_LOCATION": "https://cdn.openfin.co/services/openfin/test"
  }

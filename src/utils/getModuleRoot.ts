@@ -8,7 +8,7 @@ let rootDirectory: string|null = null;
 /**
  * Returns the root directory of the service-tooling module.
  */
-export default function getModuleRoot() {
+export function getModuleRoot() {
     if (rootDirectory) {
         return rootDirectory;
     }

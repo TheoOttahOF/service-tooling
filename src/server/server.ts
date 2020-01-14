@@ -1,8 +1,8 @@
 import {platform} from 'os';
 
-import fetch from 'node-fetch';
 import * as express from 'express';
 import {connect, launch} from 'hadouken-js-adapter';
+import fetch from 'node-fetch';
 
 import {CLIArguments} from '../types';
 import {getProjectConfig} from '../utils/getProjectConfig';
@@ -70,9 +70,10 @@ export async function startServer(app: express.Express) {
  * Default for starting a project application.  This will wire up the close detection of applications as well.
  */
 export async function startApplication(args: CLIArguments) {
-    const {PORT, SERVICE_NAME} = getProjectConfig();
+    const {IS_SERVICE} = getProjectConfig();
+
     // Manually start service on Mac OS (no RVM support)
-    if (platform() === 'darwin') {
+    if (IS_SERVICE && platform() === 'darwin') {
         console.log('Starting Provider for Mac OS');
 
         // Launch latest stable version of the service
@@ -81,35 +82,63 @@ export async function startApplication(args: CLIArguments) {
 
     // Launch application, if requested to do so
     if (!args.noDemo) {
-        const manifestPath = 'demo/app.json';
-        const manifestUrl = `http://localhost:${PORT}/${manifestPath}`;
+        console.log('Launching application');
 
-        const fetchRequest = await fetch(getProviderUrl(args.providerVersion)).catch((err: string) => {
-            throw new Error(err);
-        });
-
-        if (fetchRequest.status === 200) {
-            const providerManifestContent = await fetchRequest.json();
-            console.log('Launching application');
-
-            connect({uuid: `wrapper-${SERVICE_NAME}`, manifestUrl}).then(async (fin) => {
-                const service =
-                    fin.Application.wrapSync({uuid: `${providerManifestContent.startup_app.uuid}`, name: `${providerManifestContent.startup_app.name}`});
-
-                // Terminate local server when the provider closes
-                service
-                    .addListener(
-                        'closed',
-                        async () => {
-                            process.exit(0);
-                        }
-                    )
-                    .catch(console.error);
-            }, console.error);
+        const manifestUrl = getStartupManifest();
+        if (IS_SERVICE) {
+            // Launch demo app, terminate when the service closes
+            startAppAndWait(manifestUrl, getProviderUrl(args.providerVersion));
         } else {
-            throw new Error(`Invalid response from server:  Status code: ${fetchRequest.status}`);
+            // Launch app, terminate when it closes
+            startAppAndWait(manifestUrl);
         }
     } else {
         console.log('Local server running');
+    }
+}
+
+function getStartupManifest(): string {
+    const {PORT, MANIFEST, IS_SERVICE} = getProjectConfig();
+
+    if (!MANIFEST) {
+        // No project-specific manifestUrl
+        return IS_SERVICE ? `http://localhost:${PORT}/demo/app.json` : `http://localhost:${PORT}/app.json`;
+    } else if (MANIFEST.includes('://')) {
+        // Fully-qualified manifestUrl
+        return MANIFEST;
+    } else {
+        // Prepend base URL to custom manifest path
+        return `http://localhost:${PORT}${MANIFEST.startsWith('/') ? '' : '/'}${MANIFEST}`;
+    }
+}
+
+/**
+ * Starts up an application from a manifest, and will terminate the current node process
+ * when the app with the given UUID exits.
+ *
+ * Note that the uuid doesn't necesserily need to be the UUID contained within the manifest.
+ */
+async function startAppAndWait(manifestUrl: string, exitManifestUrl?: string): Promise<void> {
+    const {NAME} = getProjectConfig();
+
+    exitManifestUrl = exitManifestUrl || manifestUrl;
+    const fetchRequest = await fetch(exitManifestUrl).catch((err: string) => {
+        throw new Error(err);
+    });
+
+    if (fetchRequest.status === 200) {
+        const manifest = await fetchRequest.json();
+        const uuid: string = manifest.startup_app.uuid;
+
+        connect({uuid: `wrapper-${NAME}`, manifestUrl}).then(async (fin) => {
+            const app = fin.Application.wrapSync({uuid});
+
+            // Terminate local server when the provider closes
+            app.addListener('closed', async () => {
+                process.exit(0);
+            }).catch(console.error);
+        }, console.error);
+    } else {
+        throw new Error(`Invalid response from server: Status code: ${fetchRequest.status}`);
     }
 }

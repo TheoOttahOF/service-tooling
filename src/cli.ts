@@ -5,16 +5,17 @@ import * as fs from 'fs';
 
 import * as program from 'commander';
 
-import {startServer, createServer, startApplication, createDefaultMiddleware} from './server/server';
-import {CLIArguments, BuildCommandArgs, CLITestArguments, JestMode} from './types';
 import {createAsar} from './scripts/createAsar';
 import {createProviderZip} from './scripts/createProviderZip';
 import {createRuntimeChannels} from './scripts/createRuntimeChannels';
-import {executeWebpack} from './webpack/executeWebpack';
-import {getProjectConfig} from './utils/getProjectConfig';
+import {startServer, createServer, startApplication, createDefaultMiddleware} from './server/server';
 import {runIntegrationTests, runUnitTests} from './testing/runner';
-import getModuleRoot from './utils/getModuleRoot';
+import {CLIArguments, BuildCommandArgs, CLITestArguments, JestMode} from './types';
+import {allowHook, Hook, loadHooks} from './utils/allowHook';
+import {getModuleRoot} from './utils/getModuleRoot';
+import {getProjectConfig} from './utils/getProjectConfig';
 import {executeAllPlugins} from './webpack/plugins/pluginExecutor';
+import {executeWebpack} from './webpack/executeWebpack';
 
 /**
  * Start command
@@ -99,7 +100,6 @@ program.command('test <type>')
     .option('-s, --static', 'Launches the server and application using pre-built files.', true)
     .option('-n, --fileNames <fileNames...>', 'Runs all tests in the given file.')
     .option('-f, --filter <filter>', 'Only runs tests whose names match the given pattern.')
-    .option('-m, --customMiddlewarePath <path>', 'Path to a custom middleware js file.  Only applicable for Integration tests.')
     .option('-x, --extraArgs <extraArgs...>', 'Any extra arguments to pass on to jest')
     .option('-c, --noColor', 'Disables the color for the jest terminal output text', true)
     .action(startTestRunner);
@@ -110,6 +110,9 @@ program.command('test <type>')
 program.command('plugins [action]')
     .description('Executes all runnable plugins with the supplied action')
     .action(startPluginExecutor);
+
+// Load hooks (if any)
+loadHooks();
 
 /**
  * Process CLI commands
@@ -126,55 +129,68 @@ function startPluginExecutor(action?: string) {
 }
 
 /**
+ * Applies any user-provided arguments on top of the default arguments for each CLI command.
+ *
+ * It is important that the given `defaultArgs` value includes entries for every argument, even if those arguments are
+ * optional.
+ *
+ * @param defaultArgs Hard-coded default arguments for the current command
+ * @param args User-provided CLI args
+ */
+function applyCLIArgs<T>(defaultArgs: Required<T>, args: Partial<T>) {
+    const parsedArgs = {...defaultArgs};
+    const argList = Object.keys(parsedArgs) as (keyof T)[];
+    argList.forEach(<K extends keyof T>(key: K) => {
+        if (args.hasOwnProperty(key)) {
+            parsedArgs[key] = args[key]!;
+        }
+    });
+
+    return parsedArgs;
+}
+
+/**
  * Initiator for the jest int/unit tests
  */
 function startTestRunner(type: JestMode, args: CLITestArguments) {
-    const sanitizedArgs: CLITestArguments = {
+    const parsedArgs = applyCLIArgs<CLITestArguments>({
         providerVersion: 'testing',
+        mode: 'development',
         noDemo: true,
-        writeToDisk: args.static !== undefined && args.static ? false : true,
-        mode: args.mode || 'development',
-        static: args.static === undefined ? false : true,
-        filter: args.filter ? `--testNamePattern=${args.filter}` : '',
-        fileNames: (args.fileNames && (args.fileNames as unknown as string).split(' ').map((testFileName) => `${testFileName}.${type}test.ts`)) || [],
-        customMiddlewarePath: (args.customMiddlewarePath && path.resolve(args.customMiddlewarePath)) || undefined,
-        runtime: args.runtime,
-        noColor: args.noColor === undefined ? false : true,
-        extraArgs: (args.extraArgs && (args.extraArgs as unknown as string).split(' ')) || []
-    };
+        static: false,
+        writeToDisk: true,
+        filter: '',
+        fileNames: '',
+        runtime: '',
+        noColor: false,
+        extraArgs: ''
+    }, args);
+    const jestArgs: string[] = [];
 
-    const jestArgs = [];
-
-    /**
-     * Pushes in the colors argument if requested
-     */
-    if (!sanitizedArgs.noColor) {
+    // Pushes in the colors argument if requested
+    if (!parsedArgs.noColor) {
         jestArgs.push('--colors');
     }
 
-    /**
-     * Pushes in any file names provided
-     */
-    if (sanitizedArgs.fileNames) {
-        jestArgs.push(...sanitizedArgs.fileNames);
+    // Pushes in any file names provided
+    if (parsedArgs.fileNames) {
+        const fileNames = parsedArgs.fileNames.split(' ').map((testFileName) => `${testFileName}.${type}test.ts`);
+        jestArgs.push(...fileNames);
     }
 
-    /**
-     * Pushes in the requested filter
-     */
-    if (sanitizedArgs.filter) {
-        jestArgs.push(sanitizedArgs.filter);
+    // Pushes in the requested filter
+    if (parsedArgs.filter) {
+        jestArgs.push(`--testNamePattern=${parsedArgs.filter}`);
     }
 
-    /**
-     * Adds any extra arguments to the end
-     */
-    if (sanitizedArgs.extraArgs) {
-        jestArgs.push(...sanitizedArgs.extraArgs);
+    // Adds any extra arguments to the end
+    if (parsedArgs.extraArgs) {
+        const extraArgs = parsedArgs.extraArgs.split(' ');
+        jestArgs.push(...extraArgs);
     }
 
     if (type === 'int') {
-        runIntegrationTests(jestArgs, sanitizedArgs);
+        runIntegrationTests(jestArgs, parsedArgs);
     } else if (type === 'unit') {
         runUnitTests(jestArgs);
     } else {
@@ -186,28 +202,34 @@ function startTestRunner(type: JestMode, args: CLITestArguments) {
  * Starts the build + server process, passing in any provided CLI arguments
  */
 async function startCommandProcess(args: CLIArguments) {
-    const sanitizedArgs: CLIArguments = {
-        providerVersion: args.providerVersion || 'local',
-        mode: args.mode || 'development',
-        noDemo: args.noDemo === undefined ? false : true,
-        static: args.static === undefined ? false : true,
-        writeToDisk: args.writeToDisk === undefined ? false : true,
-        runtime: args.runtime
-    };
+    const parsedArgs = applyCLIArgs<CLIArguments>({
+        providerVersion: 'local',
+        mode: 'development',
+        noDemo: false,
+        static: false,
+        writeToDisk: false,
+        runtime: '',
+
+        // Hooks can selectively override the above defaults. CLI args will still take precedence.
+        ...allowHook(Hook.DEFAULT_ARGS, {})()
+    }, args);
 
     const server = await createServer();
-    await createDefaultMiddleware(server, sanitizedArgs);
+    allowHook(Hook.APP_MIDDLEWARE)(server);
+    await createDefaultMiddleware(server, parsedArgs);
     await startServer(server);
-    startApplication(sanitizedArgs);
+    startApplication(parsedArgs);
 }
 
 /**
  * Initiates a webpack build for the extending project
  */
 async function buildCommandProcess(args: BuildCommandArgs) {
-    const sanitizedArgs = {mode: args.mode || 'production'};
+    const parsedArgs = applyCLIArgs<BuildCommandArgs>({
+        mode: 'production'
+    }, args);
 
-    await executeWebpack(sanitizedArgs.mode, true);
+    await executeWebpack(parsedArgs.mode, true);
     process.exit(0);
 }
 
@@ -234,6 +256,6 @@ function generateTypedoc() {
         './dist/docs/api',
         './src/client/tsconfig.json'
     ].map((filePath) => path.resolve(filePath));
-    const cmd = `"${typedocCmd}" --name "OpenFin ${config.SERVICE_TITLE}" --theme "${themeDir}" --out "${outDir}" --excludeNotExported --excludePrivate --excludeProtected --hideGenerator --tsconfig "${tsConfig}" --readme ${readme}`; // eslint-disable-line
+    const cmd = `"${typedocCmd}" --name "OpenFin ${config.TITLE}" --theme "${themeDir}" --out "${outDir}" --excludeNotExported --excludePrivate --excludeProtected --hideGenerator --tsconfig "${tsConfig}" --readme ${readme}`; // eslint-disable-line
     childprocess.execSync(cmd, {stdio: 'inherit'});
 }

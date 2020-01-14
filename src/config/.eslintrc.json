@@ -333,6 +333,7 @@
             "single"
         ],
         "radix": "off",
+        "react/prop-types": "off",
         "require-atomic-updates": "off",
         "require-await": "off",
         "require-jsdoc": "off",

@@ -1,3 +1,4 @@
 node_modules
 dist
 openfin-service-tooling-*.tgz
+tsconfig.tsbuildinfo

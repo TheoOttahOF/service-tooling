@@ -13,7 +13,7 @@ const openfinSign = require('openfin-sign');
  * Creates a zip archive of the service provider.
  */
 export async function createAsar() {
-    const {SERVICE_NAME} = getProjectConfig();
+    const {NAME} = getProjectConfig();
     const output = path.resolve(getRootDirectory(), 'dist', 'asar');
 
     fs.emptyDirSync(output);
@@ -26,7 +26,7 @@ export async function createAsar() {
     });
 
     [
-        path.resolve(getRootDirectory(), 'dist', 'client', `openfin-${SERVICE_NAME}.js`)
+        path.resolve(getRootDirectory(), 'dist', 'client', `openfin-${NAME}.js`)
     ].forEach((file) => {
         fs.copyFileSync(file, path.resolve(output, path.basename(file)));
     });
@@ -39,7 +39,7 @@ export async function createAsar() {
         }
     });
 
-    const asarfile = path.resolve(getRootDirectory(), 'dist', 'asar', `${SERVICE_NAME}.asar`);
+    const asarfile = path.resolve(getRootDirectory(), 'dist', 'asar', `${NAME}.asar`);
     await asar.createPackage(output, asarfile);
     openfinSign(asarfile);
 

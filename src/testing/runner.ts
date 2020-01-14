@@ -4,10 +4,11 @@ import * as os from 'os';
 import * as execa from 'execa';
 import {launch} from 'hadouken-js-adapter';
 
-import {getProjectConfig} from '../utils/getProjectConfig';
 import {createServer, startServer, createDefaultMiddleware} from '../server/server';
 import {CLITestArguments} from '../types';
-import getModuleRoot from '../utils/getModuleRoot';
+import {Hook, allowHook} from '../utils/allowHook';
+import {getModuleRoot} from '../utils/getModuleRoot';
+import {getProjectConfig} from '../utils/getProjectConfig';
 
 let port: number;
 let success: boolean = false;
@@ -43,14 +44,8 @@ export function runIntegrationTests(customJestArgs: string[], cliArgs: CLITestAr
     ]);
 
     createServer()
-        .then(async (app) => {
-            if (cliArgs.customMiddlewarePath) {
-                await require(cliArgs.customMiddlewarePath)(app);
-            }
-
-            return app;
-        })
         .then((app) => {
+            allowHook(Hook.TEST_MIDDLEWARE)(app);
             return createDefaultMiddleware(app, cliArgs);
         })
         .then(startServer)

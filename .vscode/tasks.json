@@ -1,0 +1,24 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558 
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "type": "npm",
+            "script": "build",
+            "problemMatcher": [
+                "$tsc"
+            ],
+            "group": "build"
+        },
+        {
+            "label": "build-debug",
+            "command": "./node_modules/.bin/tsc.cmd",
+            "args": ["-p", "tsconfig.json", "--sourceMap", "--incremental"],
+            "problemMatcher": [
+                "$tsc"
+            ]
+        }
+    ]
+}

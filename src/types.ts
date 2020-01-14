@@ -67,13 +67,10 @@ export interface CLITestArguments extends CLIArguments {
 
     /**
      * Runs all tests in the given file.
+     *
+     * Multiple files can be specified, separated by spaces - e.g: `--fileNames "file1 file2"`
      */
-    fileNames?: string[];
-
-    /**
-     * Path to file for any express custom middlewares required for testing.
-     */
-    customMiddlewarePath?: string;
+    fileNames?: string;
 
     /**
      * Disables color for terminal output.
@@ -82,8 +79,10 @@ export interface CLITestArguments extends CLIArguments {
 
     /**
      * Any extra arguments which will be passed on to Jest/runner but not processed by any methods of this service.
+     *
+     * Multiple arguments can be specified, separated by spaces - e.g: `--extraArgs "--jest-arg1 --jest-arg2"`
      */
-    extraArgs?: string[];
+    extraArgs?: string;
 }
 
 /**

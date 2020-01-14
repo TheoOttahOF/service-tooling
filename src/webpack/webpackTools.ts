@@ -147,7 +147,7 @@ export function createConfig(outPath: string, entryPoint: string | webpack.Entry
  * Will be removed once the RVM supports relative paths within app.json files
  */
 export const manifestPlugin = (() => {
-    const {SERVICE_NAME, PORT} = getProjectConfig();
+    const {NAME, PORT} = getProjectConfig();
 
     return new CopyWebpackPlugin([{
         from: './res/provider/app.json',
@@ -156,7 +156,7 @@ export const manifestPlugin = (() => {
             const config = JSON.parse(content.toString());
 
             if (typeof process.env.SERVICE_VERSION !== 'undefined' && process.env.SERVICE_VERSION !== '') {
-                config.startup_app.url = `https://cdn.openfin.co/services/openfin/${SERVICE_NAME}/${process.env.SERVICE_VERSION}/provider.html`;
+                config.startup_app.url = `https://cdn.openfin.co/services/openfin/${NAME}/${process.env.SERVICE_VERSION}/provider.html`;
                 config.startup_app.autoShow = false;
             } else {
                 config.startup_app.url = `http://localhost:${PORT}/provider/provider.html`;
