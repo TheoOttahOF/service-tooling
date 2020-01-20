@@ -104,20 +104,20 @@
                 }
             }
         ],
-        "@typescript-eslint/indent": "error",
+        "@typescript-eslint/indent": ["error", 4, {"SwitchCase": 1, "ignoredNodes": ["Decorator"]}],
         "@typescript-eslint/interface-name-prefix": "error",
         "@typescript-eslint/member-delimiter-style": "error",
         "@typescript-eslint/no-array-constructor": "error",
         "@typescript-eslint/no-for-in-array": "off",
         "@typescript-eslint/no-misused-new": "error",
         "@typescript-eslint/no-namespace": "error",
-        "@typescript-eslint/no-parameter-properties": "error",
         "@typescript-eslint/no-this-alias": "error",
         "@typescript-eslint/no-unnecessary-type-assertion": "off",
         "@typescript-eslint/no-unused-vars": [
             "error",
             {
-                "args": "none"
+                "args": "none",
+                "ignoreRestSiblings": true
             }
         ],
         "@typescript-eslint/no-use-before-define": "off",
@@ -150,7 +150,7 @@
         "arrow-spacing": "error",
         "block-spacing": "error",
         "brace-style": "error",
-        "camelcase": "error",
+        "camelcase": "off",
         "capitalized-comments": "off",
         "comma-dangle": "error",
         "comma-spacing": "error",
@@ -179,6 +179,7 @@
         "generator-star-spacing": "error",
         "implicit-arrow-linebreak": "error",
         "import/export": "off",
+        "import/named": "off",
         "import/no-unresolved": "off",
         "import/order": [
             "error",
@@ -186,13 +187,7 @@
                 "newlines-between": "always"
             }
         ],
-        "indent": [
-            "error",
-            4,
-            {
-                "SwitchCase": 1
-            }
-        ],
+        "indent": "off",
         "jsdoc/check-examples": "error",
         "jsdoc/check-param-names": "error",
         "jsdoc/check-tag-names": ["error", {"definedTags": ["typeparam", "hidden", "throws"]}],
@@ -333,6 +328,7 @@
             "single"
         ],
         "radix": "off",
+        "react/display-name": "off",
         "react/prop-types": "off",
         "require-atomic-updates": "off",
         "require-await": "off",
