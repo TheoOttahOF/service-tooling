@@ -50,7 +50,7 @@ export interface WindowData {
      *
      * Can use the string `'center'` to use `defaultCenter: true` to position the window.
      */
-    position?: Point|'center';
+    position?: Point | 'center';
 
     /**
      * Window size, defaults to 400x300.
@@ -76,7 +76,7 @@ export interface WindowData {
     /**
      * State of the window. Defaults to normal.
      */
-    state?: 'normal'|'minimized'|'maximized';
+    state?: 'normal' | 'minimized' | 'maximized';
 }
 
 /**
@@ -86,7 +86,7 @@ export interface WindowData {
  * Any fields not specified will be filled-in with default values.
  */
 export interface AppData<C = unknown> extends WindowData {
-    type?: 'manifest'|'programmatic';
+    type?: 'manifest' | 'programmatic';
 
     /**
      * Name of the application
@@ -113,7 +113,7 @@ export interface AppData<C = unknown> extends WindowData {
     /**
      * Config object to include within the manifest. May also contain rules.
      */
-    config?: ConfigWithRules<C>|null;
+    config?: ConfigWithRules<C> | null;
 
     /**
      * Runtime version, can be a release channel name or an explicit version number.
@@ -140,15 +140,17 @@ export interface AppData<C = unknown> extends WindowData {
  * This allows any window within the demo app to request any other window create a new app or child window.
  */
 export async function addSpawnListeners(): Promise<void> {
-    const channel = await fin.InterApplicationBus.Channel.create(`spawn-${fin.Application.me.uuid}`);
+    const application = fin.Application.getCurrentSync();
+    const channel = await fin.InterApplicationBus.Channel.create(`spawn-${application.identity.uuid}`);
     channel.register('createApplication', async (options: AppData) => (await createApplication(options)).identity);
     channel.register('createWindow', async (options: WindowData) => (await createChildWindow(options)).identity);
 }
 
 export async function createApp(options: AppData): Promise<Application> {
     const parent = options.parent;
+    const application = fin.Application.getCurrentSync();
 
-    if (parent && parent.uuid !== fin.Application.me.uuid) {
+    if (parent && parent.uuid !== application.identity.uuid) {
         // Connect to parent app, and instruct it to create this application
         const channel: ChannelClient = await fin.InterApplicationBus.Channel.connect(`spawn-${parent.uuid}`);
         const identity: Identity = await channel.dispatch('createApplication', options);
@@ -161,8 +163,9 @@ export async function createApp(options: AppData): Promise<Application> {
 
 export async function createWindow(options: WindowData): Promise<_Window> {
     const parent = options.parent;
+    const application = fin.Application.getCurrentSync();
 
-    if (parent && parent.uuid !== fin.Application.me.uuid) {
+    if (parent && parent.uuid !== application.identity.uuid) {
         // Connect to parent app, and instruct it to create this window
         const channel: ChannelClient = await fin.InterApplicationBus.Channel.connect(`spawn-${parent.uuid}`);
         const identity: Identity = await channel.dispatch('createWindow', options);
@@ -198,7 +201,7 @@ async function createApplication(options: Omit<AppData, 'parent'>): Promise<Appl
         };
         return startApp(fin.Application.create(data));
     } else {
-        const queryOptions: Dictionary<string|number|boolean> = {
+        const queryOptions: Dictionary<string | number | boolean> = {
             ...position as Required<typeof position>,
             uuid,
             name,
