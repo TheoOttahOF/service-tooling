@@ -190,7 +190,7 @@ const finalCssLoader = (extract: boolean) => {
  * This embeds the package version into the source file as a string constant.
  */
 export const versionPlugin = (() => {
-    const PACKAGE_VERSION = getProjectPackageJson().version;
+    const PACKAGE_VERSION = process.env.SERVICE_VERSION || getProjectPackageJson().version;
 
     return new webpack.DefinePlugin({PACKAGE_VERSION: `'${PACKAGE_VERSION}'`});
 })();
