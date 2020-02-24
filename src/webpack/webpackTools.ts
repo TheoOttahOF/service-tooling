@@ -91,7 +91,7 @@ export function createConfig(outPath: string, entryPoint: string | webpack.Entry
                         }
                     ]
                 },
-                {test: /\.(otf|woff2?)$/, use: [{loader: 'url-loader', options: {limit: 50000}}]},
+                {test: /\.(otf|ttf|woff2?)$/, use: [{loader: 'url-loader', options: {limit: 50000}}]},
                 {test: /\.(png|jpg|gif|svg)$/, use: [{loader: 'url-loader', options: {limit: 8192}}]},
                 {
                     test: /\.tsx?$/,
