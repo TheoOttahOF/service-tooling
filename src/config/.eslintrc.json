@@ -184,6 +184,8 @@
         "import/order": [
             "error",
             {
+                // TODO: Remove 'groups' once https://www.npmjs.com/package/eslint-plugin-import/v/2.20.2 or greater is released.
+                "groups": ["builtin", ["external", "internal", "unknown"], "parent", "sibling", "index"],
                 "newlines-between": "always"
             }
         ],
