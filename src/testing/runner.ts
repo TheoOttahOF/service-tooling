@@ -58,7 +58,15 @@ export function runIntegrationTests(customJestArgs: string[], cliArgs: CLITestAr
             console.error(error);
             throw new Error();
         })
-        .then((OF_PORT) => run('jest', jestArgs, {env: {OF_PORT: (OF_PORT as number).toString()}}))
+        .then((OF_PORT) => {
+            // Without a runtimeArgs envvar dev tools will not work on *nix systems
+            const nixEnvVar = {runtimeArgs: '--remote-debugging-port=9090'};
+            let env = {OF_PORT: (OF_PORT as number).toString()};
+            if (process.platform !== 'win32') {
+                env = {...env, ...nixEnvVar};
+            }
+            return run('jest', jestArgs, {env});
+        })
         .then((res) => {
             success = !res.failed;
         })
