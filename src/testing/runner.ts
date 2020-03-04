@@ -28,7 +28,7 @@ const exit = () => {
 };
 
 const run = (processName: string, args?: any[], execaOptions?: execa.Options) => {
-    const p = execa(processName, args, execaOptions);
+    const p = execa(processName, args, {...execaOptions, shell: true});
     p.stdout.pipe(process.stdout);
     p.stderr.pipe(process.stderr);
     return p;
