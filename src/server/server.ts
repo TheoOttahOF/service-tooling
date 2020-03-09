@@ -40,9 +40,6 @@ export async function createDefaultMiddleware(app: express.Express, args: CLIArg
     // Used within demo app for lauching 'custom' applications
     app.use('/manifest', createCustomManifestMiddleware());
 
-    // Add route for serving static resources
-    app.use(express.static(`${getRootDirectory()}/res`));
-
     // Add route for code
     if (args.static) {
         // Run application using pre-built code (use 'npm run build' or 'npm run build:dev')
@@ -52,6 +49,9 @@ export async function createDefaultMiddleware(app: express.Express, args: CLIArg
         // for any source file changes
         app.use(await executeWebpack(args.mode, args.writeToDisk));
     }
+
+    // Add route for serving static resources
+    app.use(express.static(`${getRootDirectory()}/res`));
 
     return app;
 }

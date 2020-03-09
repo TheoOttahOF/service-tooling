@@ -5,6 +5,7 @@ import * as ForkTsCheckerWebpackPlugin from 'fork-ts-checker-webpack-plugin';
 
 import {getProjectConfig} from '../utils/getProjectConfig';
 import {getProjectPackageJson} from '../utils/getProjectPackageJson';
+import {getRootDirectory} from '../utils/getRootDirectory';
 
 /**
  * Custom options which can be passed into webpack.
@@ -114,7 +115,8 @@ export function createConfig(outPath: string, entryPoint: string | webpack.Entry
                 checkSyntacticErrors: true,
                 async: false, // Don't build if error
                 useTypescriptIncrementalApi: true,
-                formatter: 'codeframe'
+                formatter: 'codeframe',
+                typescript: require.resolve('typescript', {paths: [getRootDirectory()]})
             })
         ]
     };
@@ -147,10 +149,10 @@ export function createConfig(outPath: string, entryPoint: string | webpack.Entry
  * Will be removed once the RVM supports relative paths within app.json files
  */
 export const manifestPlugin = (() => {
-    const {NAME, PORT} = getProjectConfig();
+    const {NAME, PORT, IS_SERVICE} = getProjectConfig();
 
     return new CopyWebpackPlugin([{
-        from: './res/provider/app.json',
+        from: IS_SERVICE ? './res/provider/app.json' : './res/app.json',
         to: '.',
         transform: (content) => {
             const config = JSON.parse(content.toString());
