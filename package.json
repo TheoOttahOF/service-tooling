@@ -60,7 +60,6 @@
     "node-fetch": "^2.6.0",
     "node-sass": "^4.13.1",
     "openfin-service-config": "^1.0.1",
-    "openfin-sign": "openfin/openfin-sign.git#v1.0.0",
     "rimraf": "^2.6.3",
     "sass-jest": "^0.1.7",
     "sass-loader": "^7.1.0",
@@ -90,6 +89,9 @@
     "openfin-service-signal": "^1.0.0",
     "pre-commit": "^1.2.2",
     "typescript": "^3.6.4"
+  },
+  "optionalDependencies": {
+    "openfin-sign": "openfin/openfin-sign.git#v1.0.0"
   },
   "peerDependencies": {
     "typescript": "3.x"
