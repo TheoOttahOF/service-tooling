@@ -12,8 +12,19 @@ import {getProviderUrl} from '../utils/getProviderUrl';
 interface ManifestFile {
     licenseKey: string;
     // eslint-disable-next-line
-    startup_app: {url: string; uuid: string; name: string};
-    runtime: {arguments: string; version: string};
+    startup_app: {
+        uuid: string;
+        name: string;
+        url: string;
+        icon?: string;
+    };
+    shortcut?: {
+        icon?: string;
+    };
+    runtime: {
+        arguments?: string;
+        version: string;
+    };
     services?: ServiceDeclaration[];
 }
 
@@ -28,11 +39,12 @@ interface ServiceDeclaration {
  * to the command-line options of this utility.
  */
 export function createAppJsonMiddleware(providerVersion: string, runtimeVersion?: string): RequestHandler {
-    const {PORT, NAME, CDN_LOCATION} = getProjectConfig();
+    const {PORT, NAME, CDN_LOCATION, IS_SERVICE} = getProjectConfig();
 
     return async (req: Request, res: Response, next: NextFunction) => {
         const configPath = req.params[0];            // app.json path, relative to 'res' dir
-        const component = configPath.split('/')[0];  // client, provider or demo
+        const component = IS_SERVICE ? `/${configPath.split('/')[0]}` : '';  // client, provider or demo
+        const baseUrl = `http://localhost:${PORT}${component}`;
 
         // Parse app.json
         const config: ManifestFile|void = await getJsonFile<ManifestFile>(path.resolve('res', configPath))
@@ -46,12 +58,18 @@ export function createAppJsonMiddleware(providerVersion: string, runtimeVersion?
         }
 
         const serviceDefinition = (config.services || []).find((service) => service.name === NAME);
-        const startupUrl = config.startup_app.url;
+        const {startup_app: startupApp, shortcut} = config;
 
         // Edit manifest
-        if (startupUrl) {
+        if (startupApp.url) {
             // Replace startup app with HTML served locally
-            config.startup_app.url = startupUrl.replace(CDN_LOCATION, `http://localhost:${PORT}/${component}`);
+            startupApp.url = startupApp.url.replace(CDN_LOCATION, baseUrl);
+        }
+        if (startupApp.icon) {
+            startupApp.icon = startupApp.icon.replace(CDN_LOCATION, baseUrl);
+        }
+        if (shortcut && shortcut.icon) {
+            shortcut.icon = shortcut.icon.replace(CDN_LOCATION, baseUrl);
         }
         if (serviceDefinition) {
             // Replace provider manifest URL with the requested version

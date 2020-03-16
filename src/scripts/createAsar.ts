@@ -7,12 +7,13 @@ import {getRootDirectory} from '../utils/getRootDirectory';
 const asar = require('asar');
 const fs = require('fs-extra');
 const glob = require('glob');
-const openfinSign = require('openfin-sign');
 
 /**
  * Creates a zip archive of the service provider.
  */
 export async function createAsar() {
+    const openfinSign = require('openfin-sign');
+
     const {NAME} = getProjectConfig();
     const output = path.resolve(getRootDirectory(), 'dist', 'asar');
 
