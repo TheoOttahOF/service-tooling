@@ -3,81 +3,30 @@ import * as path from 'path';
 import {NextFunction, Request, RequestHandler, Response} from 'express-serve-static-core';
 
 import {getJsonFile} from '../utils/getJsonFile';
+import {getManifest, ManifestFile, ServiceDeclaration, RewriteContext} from '../utils/getManifest';
 import {getProjectConfig} from '../utils/getProjectConfig';
 import {getProviderUrl} from '../utils/getProviderUrl';
-
-/**
- * Quick implementation on the app.json, for the pieces we use.
- */
-interface ManifestFile {
-    licenseKey: string;
-    // eslint-disable-next-line
-    startup_app: {
-        uuid: string;
-        name: string;
-        url: string;
-        icon?: string;
-    };
-    shortcut?: {
-        icon?: string;
-    };
-    runtime: {
-        arguments?: string;
-        version: string;
-    };
-    services?: ServiceDeclaration[];
-}
-
-interface ServiceDeclaration {
-    name: string;
-    manifestUrl?: string;
-    config?: {};
-}
 
 /**
  * Creates express-compatible middleware function that will add/replace any URL's found within app.json files according
  * to the command-line options of this utility.
  */
 export function createAppJsonMiddleware(providerVersion: string, runtimeVersion?: string): RequestHandler {
-    const {PORT, NAME, CDN_LOCATION, IS_SERVICE} = getProjectConfig();
-
     return async (req: Request, res: Response, next: NextFunction) => {
         const configPath = req.params[0];            // app.json path, relative to 'res' dir
-        const component = IS_SERVICE ? `/${configPath.split('/')[0]}` : '';  // client, provider or demo
-        const baseUrl = `http://localhost:${PORT}${component}`;
 
         // Parse app.json
-        const config: ManifestFile|void = await getJsonFile<ManifestFile>(path.resolve('res', configPath))
-            .catch(() => {
-                next();
-            });
-
-        if (!config || !config.startup_app) {
+        let config: ManifestFile;
+        try {
+            config = getManifest(configPath, RewriteContext.DEBUG, providerVersion, runtimeVersion);
+        } catch (e) {
             next();
             return;
         }
 
-        const serviceDefinition = (config.services || []).find((service) => service.name === NAME);
-        const {startup_app: startupApp, shortcut} = config;
-
-        // Edit manifest
-        if (startupApp.url) {
-            // Replace startup app with HTML served locally
-            startupApp.url = startupApp.url.replace(CDN_LOCATION, baseUrl);
-        }
-        if (startupApp.icon) {
-            startupApp.icon = startupApp.icon.replace(CDN_LOCATION, baseUrl);
-        }
-        if (shortcut && shortcut.icon) {
-            shortcut.icon = shortcut.icon.replace(CDN_LOCATION, baseUrl);
-        }
-        if (serviceDefinition) {
-            // Replace provider manifest URL with the requested version
-            serviceDefinition.manifestUrl = getProviderUrl(providerVersion, serviceDefinition.manifestUrl);
-        }
-        if (runtimeVersion) {
-            // Replace runtime version with one provided.
-            config.runtime.version = runtimeVersion;
+        // If this is the provider manifest, ensure window is always visible
+        if (configPath.indexOf('/provider/') && config.startup_app?.autoShow === false) {
+            config.startup_app.autoShow = true;
         }
 
         // Return modified JSON to client
