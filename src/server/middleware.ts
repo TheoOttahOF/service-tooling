@@ -1,38 +1,166 @@
 import * as path from 'path';
+import {WindowOption} from 'openfin/_v2/api/window/windowOption';
 
 import {NextFunction, Request, RequestHandler, Response} from 'express-serve-static-core';
 
 import {getJsonFile} from '../utils/getJsonFile';
-import {getManifest, ManifestFile, ServiceDeclaration, RewriteContext} from '../utils/getManifest';
 import {getProjectConfig} from '../utils/getProjectConfig';
 import {getProviderUrl} from '../utils/getProviderUrl';
+
+/**
+ * Quick implementation on the app.json, for the pieces we use.
+ */
+interface ManifestFile {
+    licenseKey: string;
+    // eslint-disable-next-line
+    startup_app: WindowOption;
+    runtime: RuntimeInfo;
+    services?: ServiceDeclaration[];
+}
+
+interface RuntimeInfo {
+    arguments: string;
+    version: string;
+}
+
+/**
+ * There is no platform manifest type available.
+ */
+interface PlatformManifest {
+    platform: {
+        autoShow: boolean;
+        uuid: string;
+        applicationIcon: string;
+        defaultWindowOptions: Omit<WindowOption, 'autoShow' | 'uuid' | 'name'>;
+    };
+    snapshot: {
+        windows: SnapshotWindow[];
+    };
+    runtime: RuntimeInfo;
+}
+
+interface SnapshotWindow {
+    defaultWidth: number;
+    defaultHeight: number;
+    defaultLeft: number;
+    defaultTop: number;
+    layout: {
+        content: PlatformStack[][];
+    };
+}
+
+interface PlatformStack {
+    type: 'stack';
+    content: (PlatformComponent | PlatformStack)[];
+}
+
+interface PlatformComponent {
+    type: 'component' | 'stack';
+    componentName: string;
+    componentState: {
+        name: string;
+        url: string;
+        processAffinity?: 'ps_1';
+    }
+}
+
+interface ServiceDeclaration {
+    name: string;
+    manifestUrl?: string;
+    config?: {};
+}
 
 /**
  * Creates express-compatible middleware function that will add/replace any URL's found within app.json files according
  * to the command-line options of this utility.
  */
 export function createAppJsonMiddleware(providerVersion: string, runtimeVersion?: string): RequestHandler {
+    const {PORT, NAME, CDN_LOCATION} = getProjectConfig();
+
     return async (req: Request, res: Response, next: NextFunction) => {
         const configPath = req.params[0];            // app.json path, relative to 'res' dir
+        const component = configPath.split('/')[0];  // client, provider or demo
 
         // Parse app.json
-        let config: ManifestFile;
-        try {
-            config = getManifest(configPath, RewriteContext.DEBUG, providerVersion, runtimeVersion);
-        } catch (e) {
+        const config: ManifestFile|void = await getJsonFile<ManifestFile>(path.resolve('res', configPath))
+            .catch(() => {
+                next();
+            });
+
+        if (!config || !config.startup_app) {
             next();
             return;
         }
 
-        // If this is the provider manifest, ensure window is always visible
-        if (configPath.indexOf('/provider/') && config.startup_app?.autoShow === false) {
-            config.startup_app.autoShow = true;
+        const serviceDefinition = (config.services || []).find((service) => service.name === NAME);
+        const startupUrl = config.startup_app.url;
+
+        // Edit manifest
+        if (startupUrl) {
+            // Replace startup app with HTML served locally
+            config.startup_app.url = startupUrl.replace(CDN_LOCATION, `http://localhost:${PORT}/${component}`);
+        }
+        if (serviceDefinition) {
+            // Replace provider manifest URL with the requested version
+            serviceDefinition.manifestUrl = getProviderUrl(providerVersion, serviceDefinition.manifestUrl);
+        }
+        if (runtimeVersion) {
+            // Replace runtime version with one provided.
+            config.runtime.version = runtimeVersion;
         }
 
         // Return modified JSON to client
         res.header('Content-Type', 'application/json; charset=utf-8');
         res.send(JSON.stringify(config, null, 4));
     };
+}
+
+function generatePlatformApp(manifest: ManifestFile): PlatformManifest {
+    const platformConfig: PlatformManifest = {
+        platform: {
+            uuid: manifest.startup_app.uuid,
+            applicationIcon: `http://localhost:3923/demo/img/app-icons/${appName}.ico`,
+            autoShow: manifest.startup_app,
+            defaultWindowOptions: {
+                cornerRounding: {
+                    height: 10,
+                    width: 10
+                },
+                contextMenu: true
+            }
+        },
+        snapshot: {
+            windows: [
+                {
+                    defaultWidth: 600,
+                    defaultHeight: 600,
+                    layout: {
+                        content: [
+                            {
+                                type: "stack",
+                                content: [
+                                    {
+                                        type: "component",
+                                        componentName: "view",
+                                        componentState: {
+                                            name: `${appName}${color}`,
+                                            url: `http://localhost:3923/demo/index.html?app=${appName}&color=${color}`
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        runtime: {
+            arguments: "--v=1 --inspect",
+            version: "beta"
+        },
+    };
+
+    return platformConfig;
 }
 
 /**
@@ -129,3 +257,4 @@ export function createCustomManifestMiddleware(): RequestHandler {
         res.send(JSON.stringify(manifest, null, 4));
     };
 }
+
