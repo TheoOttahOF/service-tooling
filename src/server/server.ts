@@ -34,7 +34,7 @@ export async function createServer() {
 export async function createDefaultMiddleware(app: express.Express, args: CLIArguments) {
     // Add special route for any 'app.json' files - will re-write the contents
     // according to the command-line arguments of this server
-    app.use(/\/?(.*\.json)/, createAppJsonMiddleware(args.providerVersion, args.runtime));
+    app.use(/\/?(.*\.json)/, createAppJsonMiddleware(args.providerVersion, args.runtime, args.platform));
 
     // Add endpoint for creating new application manifests from scratch.
     // Used within demo app for lauching 'custom' applications

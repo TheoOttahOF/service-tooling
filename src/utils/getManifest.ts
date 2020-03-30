@@ -4,34 +4,7 @@ import {getProjectConfig} from './getProjectConfig';
 import {getJsonFileSync} from './getJsonFile';
 import {getProviderUrl} from './getProviderUrl';
 import {replaceUrlParams} from './url';
-
-/**
- * Quick implementation on the app.json, for the pieces we use.
- */
-export interface ManifestFile {
-    licenseKey: string;
-    startup_app: {
-        uuid: string;
-        name: string;
-        url: string;
-        autoShow?: boolean;
-        icon?: string;
-    };
-    shortcut?: {
-        icon?: string;
-    };
-    runtime: {
-        arguments?: string;
-        version: string;
-    };
-    services?: ServiceDeclaration[];
-}
-
-export interface ServiceDeclaration {
-    name: string;
-    manifestUrl?: string;
-    config?: {};
-}
+import {ClassicManifest, PlatformManifest} from './manifests';
 
 export enum RewriteContext {
     /**
@@ -57,12 +30,12 @@ export enum RewriteContext {
  * @param providerVersion The requested provider version or service inclusion method
  * @param runtimeVersion An optional runtime version override
  */
-export function getManifest(configPath: string, context: RewriteContext, providerVersion: string, runtimeVersion?: string): ManifestFile {
+export function getManifest(configPath: string, context: RewriteContext, providerVersion: string, runtimeVersion?: string): ClassicManifest {
     const {PORT, NAME, CDN_LOCATION, IS_SERVICE} = getProjectConfig();
 
     const component = IS_SERVICE ? `/${configPath.split('/')[0]}` : '';  // client, provider or demo
     const baseUrl = context === RewriteContext.DEBUG ? `http://localhost:${PORT}${component}` : CDN_LOCATION;
-    const config: ManifestFile | void = getJsonFileSync<ManifestFile>(path.resolve('res', configPath));
+    const config: ClassicManifest | void = getJsonFileSync<ClassicManifest>(path.resolve('res', configPath));
 
     if (!config || !config.startup_app) {
         throw new Error(`${configPath} is not an app manifest`);
@@ -93,3 +66,55 @@ export function getManifest(configPath: string, context: RewriteContext, provide
 
     return config;
 }
+
+/**
+ * Convert a Classic manifest into a Platform manifest.
+ */
+export function getPlatformManifest(manifest: ClassicManifest): PlatformManifest {
+    const {uuid, name, url, icon = ''} = manifest.startup_app;
+
+    const platformConfig: PlatformManifest = {
+        licenseKey: manifest.licenseKey,
+        platform: {
+            uuid,
+            applicationIcon: icon,
+            // This should be false to hide the Platform provider
+            autoShow: false,
+            defaultWindowOptions: {
+                contextMenu: true
+            }
+        },
+        snapshot: {
+            windows: [
+                {
+                    defaultWidth: manifest.startup_app.defaultWidth ?? 600,
+                    defaultHeight: manifest.startup_app.defaultHeight ?? 600,
+                    autoShow: manifest.startup_app.autoShow ?? true,
+                    layout: {
+                        content: [
+                            {
+                                type: 'stack',
+                                content: [
+                                    {
+                                        type: 'component',
+                                        componentName: 'view',
+                                        componentState: {
+                                            name,
+                                            url
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        runtime: manifest.runtime,
+        services: manifest.services
+
+    };
+
+    return platformConfig;
+}
+

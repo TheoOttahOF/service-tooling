@@ -34,7 +34,7 @@ export enum Hook {
 
 export interface HooksAPI {
     [Hook.DEFAULT_ARGS]: () => Partial<CLIArguments>;
-    [Hook.APP_MIDDLEWARE]: (app: express.Express) => void;
+    [Hook.APP_MIDDLEWARE]: (app: express.Express, args: CLIArguments) => void;
     [Hook.TEST_MIDDLEWARE]: (app: express.Express) => void;
 }
 

@@ -45,6 +45,11 @@ export interface CLIArguments {
      * Sets the runtime version to be used in place of values in loaded app.json files.
      */
     runtime?: string;
+
+    /**
+     * Run the demo in a platform window.
+     */
+    platform: boolean;
 }
 
 export interface BuildCommandArgs {

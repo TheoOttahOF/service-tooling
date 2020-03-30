@@ -28,6 +28,7 @@ program.command('start')
         'local'
     )
     .option('-r, --runtime <version>', 'Sets the runtime version.  Options: stable | w.x.y.z')
+    .option('-p, --platform', 'Run the demo in a platform window.', false)
     .option('-m, --mode <mode>', 'Sets the webpack mode.  Defaults to "development".  Options: development | production | none', 'development')
     .option('-n, --noDemo', 'Runs the server but will not launch the demo application.', true)
     .option('-s, --static', 'Launches the server and application using pre-built files.', true)
@@ -159,6 +160,7 @@ function startTestRunner(type: JestMode, args: CLITestArguments) {
         noDemo: true,
         static: false,
         writeToDisk: true,
+        platform: false,
         filter: '',
         fileNames: '',
         runtime: '',
@@ -208,6 +210,7 @@ async function startCommandProcess(args: CLIArguments) {
         noDemo: false,
         static: false,
         writeToDisk: false,
+        platform: false,
         runtime: '',
 
         // Hooks can selectively override the above defaults. CLI args will still take precedence.
@@ -215,7 +218,7 @@ async function startCommandProcess(args: CLIArguments) {
     }, args);
 
     const server = await createServer();
-    allowHook(Hook.APP_MIDDLEWARE)(server);
+    allowHook(Hook.APP_MIDDLEWARE)(server, parsedArgs);
     await createDefaultMiddleware(server, parsedArgs);
     await startServer(server);
     startApplication(parsedArgs);
