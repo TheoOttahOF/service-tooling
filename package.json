@@ -28,6 +28,7 @@
   "homepage": "https://github.com/HadoukenIO/service-tooling",
   "dependencies": {
     "@types/execa": "^0.9.0",
+    "@types/fs-extra": "^8.1.0",
     "@types/jest": "^24.0.15",
     "@types/rimraf": "^2.0.2",
     "@types/webpack": "^4.4.35",

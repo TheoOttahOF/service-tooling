@@ -18,11 +18,11 @@ Extracts out common build and server components which can be shared across diffe
     Starts the build and serves the project.
 
     - Options: 
-        - -v, --providerVersion <version>: Sets the runtime version for the provider.  Defaults to "local". Options: local | staging | stable | w.x.y.z'.
+        - -v, --providerVersion <version>: Sets the runtime version for the provider.  Defaults to "local". Options: local | staging | stable | runtime | w.x.y.z'.
         - -m, --mode <mode>: Sets the webpack mode.  Defaults to "development".  Options: development | production | none'
         - -n, --noDemo: Runs the server but will not launch the demo application.
         - -s, --static: Launches the server and application using pre-built files.
-        - -w, --writeToDisk: Writes and serves the built files from disk.
+        - -w, --write: Writes and serves the built files from disk.
 
 * **svc-tools build [...options]**
 

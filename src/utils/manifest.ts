@@ -1,5 +1,7 @@
 import {existsSync} from 'fs';
-import {join} from 'path';
+import {join, resolve} from 'path';
+
+import fetch from 'node-fetch';
 
 import {getProjectConfig, Config} from './getProjectConfig';
 import {getRootDirectory} from './getRootDirectory';
@@ -8,12 +10,25 @@ import {replaceUrlParams} from './url';
 const urlCache: {[provider: string]: string} = {};
 
 /**
+ * Returns an absolute path to the provider's manifest.
+ *
+ * This is the local file within the project codebase, use {@link getProviderUrl} to get a reference to the provider
+ * manifest that is usable within a manifest or from a fetch.
+ */
+export function getProviderPath(): string {
+    const {IS_SERVICE} = getProjectConfig();
+    const manifestPath = IS_SERVICE ? './res/provider/app.json' : './res/app.json';
+
+    return resolve(getRootDirectory(), manifestPath);
+}
+
+/**
  * Returns the URL of the manifest file for the requested version of the service.
  *
- * @param {string} version Version number of the service, or a channel
- * @param {string} manifestUrl The URL that was set in the application manifest (if any). Any querystring arguments will be persisted, but the rest of the URL will be ignored.
+ * @param version Version number of the service, or a channel
+ * @param manifestUrl The URL that was set in the application manifest (if any). Any querystring arguments will be persisted, but the rest of the URL will be ignored.
  */
-export function getProviderUrl(version: string, manifestUrl?: string) {
+export function getProviderUrl(version: string, manifestUrl?: string): string {
     let url: string = urlCache[version];
 
     if (!url) {
@@ -62,4 +77,16 @@ export function getProviderUrl(version: string, manifestUrl?: string) {
     const index = (manifestUrl && manifestUrl.indexOf('?')) || -1;
     const query = index >= 0 ? manifestUrl!.substr(index) : '';
     return `${url}${query}`;
+}
+
+export async function getManifest(manifestUrl: string): Promise<any> {
+    const fetchRequest = await fetch(manifestUrl).catch((err: string) => {
+        throw new Error(err);
+    });
+
+    if (fetchRequest.status === 200) {
+        return fetchRequest.json();
+    } else {
+        throw new Error(`Invalid response from server: Status code: ${fetchRequest.status}`);
+    }
 }

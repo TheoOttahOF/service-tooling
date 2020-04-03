@@ -104,7 +104,15 @@ export interface AppData<C = unknown> extends WindowData {
     useService?: boolean;
 
     /**
-     * The version of the provider to use. Either local/staging/stable, or a version number from the CDN.
+     * Switches the method by which the service is started from the 'desktop service' model to the 'runtime injection'
+     * model. This is only available on services that are configured to use the asar method (see
+     * `ConfigFile.RUNTIME_INJECTABLE`).
+     */
+    asar?: boolean;
+
+    /**
+     * The version of the provider to use. Either local/staging/stable/testing, an absolute manifest URL, or a version
+     * number from a build that has been deployed to the CDN.
      *
      * Has no effect if `useService` is false.
      */
@@ -215,6 +223,7 @@ async function createApplication(options: Omit<AppData, 'parent'>): Promise<Appl
             enableMesh: options.enableMesh || false,
             runtime: options.runtime || await fin.System.getVersion(),
             useService: options.useService !== undefined ? options.useService : true,
+            asar: options.asar !== undefined ? options.asar : false,
             provider: options.provider || 'local',
             config: options.config ? JSON.stringify(options.config) : ''
         };

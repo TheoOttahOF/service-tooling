@@ -7,15 +7,61 @@ import {getRootDirectory} from './getRootDirectory';
  * Shape of the configuration file which is implemented in an extending project.
  */
 interface ConfigFile {
+    /**
+     * The "clean" name of this project, all lower-case and with no special characters.
+     *
+     * This is used as the name of the exported NPM module, JS script, CDN upload directory, and so on.
+     */
     NAME: string;
+
+    /**
+     * Human-readable equivilant of `NAME`, allows the use of mixed-case and filesystem-reserved characters.
+     */
     TITLE: string;
+
+    /**
+     * The port that the local development server will run on, when running `npm start`
+     */
     PORT: number;
+
+    /**
+     * The location on the CDN where this project is uploaded to when deployed. Within manifests and any other files
+     * that require absolute URLs, these should always reference the deployed location of the target. When debugging
+     * locally, there will be a middleware on the local server that maps these URLs to their locally-hosted
+     * equivalents. The value of this property controls which URLs get re-mapped.
+     *
+     * This should be the externally-facing URL, rather than the internal AWS bucket URL.
+     */
     CDN_LOCATION: string;
 
+    /**
+     * Indicates if this service supports runtime injection - meaning that this is a service that can be started via
+     * ASAR by the runtime. This replaces the RVM-managed service model (though that method is still supported).
+     *
+     * This option is required in order to use the --asar option on the 'npm start' and 'npm run test' commands. Do not
+     * use this parameter to control the startup method on a case-by-case basis, use the --asar argument for that
+     * (which is supported by both 'start' and 'test int').
+     *
+     * When enabled, three additional parameters are supported within the 'startup_app' section of a manifest. Each is prefixed
+     */
+    RUNTIME_INJECTABLE?: boolean;
+
+    /**
+     * The manifest to use when starting the application. Allows overriding of the demo app manifest location.
+     *
+     * This is the manifest that is launched when running `npm start`.
+     */
     MANIFEST?: string;
 }
 
 export interface Config extends ConfigFile {
+    /**
+     * Indicates if the current project is a Desktop Service (true), or a standalone Application (false). Services have
+     * a more complex folder structure, due to their multiple components.
+     *
+     * This is not specified explicitly in a config file, rather it is inferred from the name of the config file used
+     * by the project. See the README for more information.
+     */
     IS_SERVICE: boolean;
 
     /**

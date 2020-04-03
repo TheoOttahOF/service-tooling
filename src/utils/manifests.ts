@@ -11,10 +11,17 @@ export interface ClassicManifest {
         uuid: string;
         name: string;
         url: string;
-        defaultHeight?: number;
-        defaultWidth?: number;
-        icon?: string;
+
         autoShow?: boolean;
+        frame?: boolean;
+        icon?: string;
+        saveWindowState?: boolean;
+
+        defaultCentered?: boolean;
+        defaultLeft?: number;
+        defaultTop?: number;
+        defaultWidth?: number;
+        defaultHeight?: number;
     };
     shortcut?: {
         icon?: string;
