@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import * as childprocess from 'child_process';
 import * as path from 'path';
-import * as fs from 'fs';
 
 import * as program from 'commander';
+import * as fs from 'fs-extra';
 
 import {createAsar} from './scripts/createAsar';
 import {createProviderZip} from './scripts/createProviderZip';
@@ -14,8 +14,41 @@ import {CLIArguments, BuildCommandArgs, CLITestArguments, JestMode} from './type
 import {allowHook, Hook, loadHooks} from './utils/allowHook';
 import {getModuleRoot} from './utils/getModuleRoot';
 import {getProjectConfig} from './utils/getProjectConfig';
+import {getRootDirectory} from './utils/getRootDirectory';
 import {executeAllPlugins} from './webpack/plugins/pluginExecutor';
 import {executeWebpack} from './webpack/executeWebpack';
+import {prepareRuntime} from './utils/runtime';
+
+// Load hooks (if any)
+loadHooks();
+
+const defaultStartArgs: Required<CLIArguments> = {
+    providerVersion: 'local',
+    asar: false,
+    mode: 'development',
+    demo: true,
+    static: false,
+    write: false,
+    runtime: '',
+    platform: false,
+
+    // Hooks can selectively override the above defaults. CLI args will still take precedence.
+    ...allowHook(Hook.DEFAULT_ARGS, {})()
+};
+
+const version = require(path.resolve(getRootDirectory(), 'package.json')).version;
+
+program.version(version);
+
+function asBoolean(value: string, previous: boolean) {
+    if (value === '0' || value === 'false' || value === 'off' || value === 'no') {
+        return false;
+    } else if (value === '1' || value === 'true' || value === 'on' || value === 'yes') {
+        return true;
+    } else {
+        throw new Error(`Not a valid value: ${value}, only boolean values are allowed`);
+    }
+}
 
 /**
  * Start command
@@ -24,14 +57,19 @@ program.command('start')
     .description('Builds and runs a demo app, for testing service functionality.')
     .option(
         '-v, --providerVersion <version>',
-        'Sets the runtime version for the provider.  Defaults to "local". Options: local | staging | stable | x.y.z',
-        'local'
+        'Sets the version of the provider to use.  Options: local | staging | stable | x.y.z',
+        defaultStartArgs.providerVersion
     )
-    .option('-r, --runtime <version>', 'Sets the runtime version.  Options: stable | w.x.y.z')
-    .option('-m, --mode <mode>', 'Sets the webpack mode.  Defaults to "development".  Options: development | production | none', 'development')
-    .option('-n, --noDemo', 'Runs the server but will not launch the demo application.', true)
-    .option('-s, --static', 'Launches the server and application using pre-built files.', true)
-    .option('-w, --writeToDisk', 'Writes and serves the built files from disk.', true)
+    .option('-a, --asar [enabled]', 'Starts the provider from an ASAR, rather than as a desktop service', asBoolean, defaultStartArgs.asar)
+    .option(
+        '-r, --runtime <version>',
+        'If specified, will override the runtime version of every manifest within the project.  Options: stable | alpha | beta | canary | w.x.y.z'
+    )
+    .option('-m, --mode <mode>', 'Sets the webpack mode.  Options: development | production | none', defaultStartArgs.mode)
+    .option('-p, --platform [enabled]', 'Run the application in a platform window.', asBoolean, defaultStartArgs.platform)
+    .option('-d, --demo [enabled]', 'Determines if the demo app will be launched once the local server is running', asBoolean, defaultStartArgs.demo)
+    .option('-s, --static [enabled]', 'Launches the server and application using pre-built files', asBoolean, defaultStartArgs.static)
+    .option('-w, --write [enabled]', 'Writes the built files to disk', asBoolean, defaultStartArgs.write)
     .action(startCommandProcess);
 
 /**
@@ -94,9 +132,15 @@ program.command('docs')
  * Jest commands
  */
 program.command('test <type>')
-    .description('Runs all jest tests for the provided type.  Type may be "int" or "unit"')
-    .option('-r, --runtime <version>', 'Sets the runtime version.  Options: stable | w.x.y.z')
-    .option('-e, --mode <mode>', 'Sets the webpack mode.  Defaults to "development".  Options: development | production | none', 'development')
+    .description('Runs all jest tests for the provided type.  Type may be "int" or "unit".\
+\
+Note: The --asar, --static and --runtime arguments apply only to integration tests.')
+    .option('-a, --asar [enabled]', 'Starts the provider from an ASAR, rather than as a desktop service', asBoolean, true)
+    .option(
+        '-r, --runtime <version>',
+        'If specified, will override the runtime version of every manifest within the project.  Options: stable | alpha | beta | canary | w.x.y.z'
+    )
+    .option('-m, --mode <mode>', 'Sets the webpack mode.  Options: development | production | none', 'development')
     .option('-s, --static', 'Launches the server and application using pre-built files.', true)
     .option('-n, --fileNames <fileNames...>', 'Runs all tests in the given file.')
     .option('-f, --filter <filter>', 'Only runs tests whose names match the given pattern.')
@@ -111,9 +155,6 @@ program.command('plugins [action]')
     .description('Executes all runnable plugins with the supplied action')
     .action(startPluginExecutor);
 
-// Load hooks (if any)
-loadHooks();
-
 /**
  * Process CLI commands
  */
@@ -124,7 +165,7 @@ if (program.args.length === 0) {
     program.help();
 }
 
-function startPluginExecutor(action?: string) {
+function startPluginExecutor(action?: string): Promise<void> {
     return executeAllPlugins(action);
 }
 
@@ -137,7 +178,7 @@ function startPluginExecutor(action?: string) {
  * @param defaultArgs Hard-coded default arguments for the current command
  * @param args User-provided CLI args
  */
-function applyCLIArgs<T>(defaultArgs: Required<T>, args: Partial<T>) {
+function applyCLIArgs<T>(defaultArgs: Required<T>, args: Partial<T>): T {
     const parsedArgs = {...defaultArgs};
     const argList = Object.keys(parsedArgs) as (keyof T)[];
     argList.forEach(<K extends keyof T>(key: K) => {
@@ -152,13 +193,16 @@ function applyCLIArgs<T>(defaultArgs: Required<T>, args: Partial<T>) {
 /**
  * Initiator for the jest int/unit tests
  */
-function startTestRunner(type: JestMode, args: CLITestArguments) {
+async function startTestRunner(type: JestMode, args: CLITestArguments): Promise<void> {
+    const {IS_SERVICE, RUNTIME_INJECTABLE} = getProjectConfig();
     const parsedArgs = applyCLIArgs<CLITestArguments>({
         providerVersion: 'testing',
+        asar: IS_SERVICE && !!RUNTIME_INJECTABLE, // Default to using the asar method when available, as this method is more representative of normal usage
         mode: 'development',
-        noDemo: true,
+        demo: false,
         static: false,
-        writeToDisk: true,
+        write: true,
+        platform: false,
         filter: '',
         fileNames: '',
         runtime: '',
@@ -201,30 +245,26 @@ function startTestRunner(type: JestMode, args: CLITestArguments) {
 /**
  * Starts the build + server process, passing in any provided CLI arguments
  */
-async function startCommandProcess(args: CLIArguments) {
-    const parsedArgs = applyCLIArgs<CLIArguments>({
-        providerVersion: 'local',
-        mode: 'development',
-        noDemo: false,
-        static: false,
-        writeToDisk: false,
-        runtime: '',
+async function startCommandProcess(args: CLIArguments): Promise<void> {
+    const parsedArgs = applyCLIArgs<CLIArguments>(defaultStartArgs, args);
 
-        // Hooks can selectively override the above defaults. CLI args will still take precedence.
-        ...allowHook(Hook.DEFAULT_ARGS, {})()
-    }, args);
+    if (args.asar && !(args.static || args.write)) {
+        console.log('Enabling --write, to speed-up ASAR creation');
+        parsedArgs.write = true;
+    }
 
     const server = await createServer();
-    allowHook(Hook.APP_MIDDLEWARE)(server);
+    await allowHook(Hook.APP_MIDDLEWARE)(server, parsedArgs);
     await createDefaultMiddleware(server, parsedArgs);
     await startServer(server);
+    await prepareRuntime(parsedArgs);
     startApplication(parsedArgs);
 }
 
 /**
  * Initiates a webpack build for the extending project
  */
-async function buildCommandProcess(args: BuildCommandArgs) {
+async function buildCommandProcess(args: BuildCommandArgs): Promise<void> {
     const parsedArgs = applyCLIArgs<BuildCommandArgs>({
         mode: 'production'
     }, args);
@@ -236,7 +276,7 @@ async function buildCommandProcess(args: BuildCommandArgs) {
 /**
  * Executes ESlint, optionally executing the fix flag.
  */
-function runEsLintCommand(fix: boolean, cache: boolean) {
+function runEsLintCommand(fix: boolean, cache: boolean): void {
     const eslintCmd = path.resolve('./node_modules/.bin/eslint');
     const eslintConfig = path.join(getModuleRoot(), '/.eslintrc.json');
     const cmd = `"${eslintCmd}" src test --ext .ts --ext .tsx ${fix ? '--fix' : ''} ${cache ? '--cache' : ''} --config "${eslintConfig}"`;
@@ -246,7 +286,7 @@ function runEsLintCommand(fix: boolean, cache: boolean) {
 /**
  * Generates typedoc
  */
-function generateTypedoc() {
+function generateTypedoc(): void {
     const docsHomePage = path.resolve('./docs/DOCS.md');
     const readme = fs.existsSync(docsHomePage) ? docsHomePage : 'none';
     const config = getProjectConfig();
@@ -256,6 +296,14 @@ function generateTypedoc() {
         './dist/docs/api',
         './src/client/tsconfig.json'
     ].map((filePath) => path.resolve(filePath));
-    const cmd = `"${typedocCmd}" --name "OpenFin ${config.TITLE}" --theme "${themeDir}" --out "${outDir}" --excludeNotExported --excludePrivate --excludeProtected --hideGenerator --tsconfig "${tsConfig}" --readme ${readme}`; // eslint-disable-line
+    const cmd = [
+        `"${typedocCmd}"`,
+        `--name "OpenFin ${config.TITLE}"`,
+        `--theme "${themeDir}"`,
+        `--out "${outDir}"`,
+        `--tsconfig "${tsConfig}"`,
+        `--readme ${readme}`,
+        '--excludeNotExported --excludePrivate --excludeProtected --hideGenerator'
+    ].join(' ');
     childprocess.execSync(cmd, {stdio: 'inherit'});
 }

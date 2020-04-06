@@ -3,22 +3,25 @@ import * as path from 'path';
 import {NextFunction, Request, RequestHandler, Response} from 'express-serve-static-core';
 
 import {getJsonFile} from '../utils/getJsonFile';
-import {getManifest, ManifestFile, ServiceDeclaration, RewriteContext} from '../utils/getManifest';
+import {getManifest, RewriteContext, getPlatformManifest, annotateAppWithService} from '../utils/getManifest';
 import {getProjectConfig} from '../utils/getProjectConfig';
-import {getProviderUrl} from '../utils/getProviderUrl';
+import {getProviderUrl} from '../utils/manifest';
+import {ClassicManifest, ServiceDeclaration, Manifest} from '../utils/manifests';
+import {CLIArguments} from '../types';
 
 /**
  * Creates express-compatible middleware function that will add/replace any URL's found within app.json files according
  * to the command-line options of this utility.
  */
-export function createAppJsonMiddleware(providerVersion: string, runtimeVersion?: string): RequestHandler {
+export function createAppJsonMiddleware(args: Pick<CLIArguments, 'providerVersion' | 'asar' | 'runtime' | 'platform'>): RequestHandler {
     return async (req: Request, res: Response, next: NextFunction) => {
         const configPath = req.params[0];            // app.json path, relative to 'res' dir
+        const isProvider = configPath.toLowerCase().includes('provider');
 
         // Parse app.json
-        let config: ManifestFile;
+        let config: ClassicManifest;
         try {
-            config = getManifest(configPath, RewriteContext.DEBUG, providerVersion, runtimeVersion);
+            config = getManifest(configPath, RewriteContext.DEBUG, args);
         } catch (e) {
             next();
             return;
@@ -29,9 +32,14 @@ export function createAppJsonMiddleware(providerVersion: string, runtimeVersion?
             config.startup_app.autoShow = true;
         }
 
+        let finalConfig: Manifest = config;
+        if (args.platform && !isProvider) {
+            finalConfig = getPlatformManifest(config);
+        }
+
         // Return modified JSON to client
         res.header('Content-Type', 'application/json; charset=utf-8');
-        res.send(JSON.stringify(config, null, 4));
+        res.send(JSON.stringify(finalConfig, null, 4));
     };
 }
 
@@ -45,7 +53,7 @@ export function createCustomManifestMiddleware(): RequestHandler {
     const {PORT, NAME} = getProjectConfig();
 
     return async (req, res, next) => {
-        const defaultConfig = await getJsonFile<ManifestFile>(path.resolve('./res/demo/app.json')).catch(next);
+        const defaultConfig = await getJsonFile<ClassicManifest>(path.resolve('./res/demo/app.json')).catch(next);
 
         if (!defaultConfig) {
             return;
@@ -67,6 +75,7 @@ export function createCustomManifestMiddleware(): RequestHandler {
             enableMesh,
             runtime,
             useService,
+            asar,
             provider,
             config,
             licenseKey,
@@ -88,6 +97,7 @@ export function createCustomManifestMiddleware(): RequestHandler {
             frame: req.query.frame !== 'false',
             enableMesh: req.query.enableMesh !== 'false',
             useService: req.query.useService !== 'false',
+            asar: req.query.asar === 'true',
             defaultCentered: req.query.defaultCentered === 'true',
             defaultLeft: Number.parseInt(req.query.defaultLeft, 10) || 860,
             defaultTop: Number.parseInt(req.query.defaultTop, 10) || 605,
@@ -103,25 +113,34 @@ export function createCustomManifestMiddleware(): RequestHandler {
                 : undefined
         };
 
-        const manifest = {
+        const manifest: ClassicManifest = {
             licenseKey,
-            // eslint-disable-next-line
-            startup_app:
+            startup_app: // eslint-disable-line @typescript-eslint/camelcase
                 {uuid, name, url, frame, autoShow: true, saveWindowState: false, defaultCentered, defaultLeft, defaultTop, defaultWidth, defaultHeight},
             runtime: {arguments: `--v=1${realmName ? ` --security-realm=${realmName}${enableMesh ? ' --enable-mesh' : ''}` : ''}`, version: runtime},
-            services: {},
+            services: [],
             shortcut
         };
         if (useService) {
-            const service: ServiceDeclaration = {name: `${NAME}`};
+            if (asar) {
+                const {RUNTIME_INJECTABLE} = getProjectConfig();
 
-            if (provider !== 'default') {
-                service.manifestUrl = getProviderUrl(provider);
+                if (RUNTIME_INJECTABLE) {
+                    annotateAppWithService(manifest.startup_app, {name: NAME, config: config!}, provider);
+                } else {
+                    throw new Error('"asar=true" can only be used if the RUNTIME_INJECTABLE config option is set within services.config.json');
+                }
+            } else {
+                const service: ServiceDeclaration = {name: NAME};
+
+                if (provider !== 'default') {
+                    service.manifestUrl = getProviderUrl(provider);
+                }
+                if (config) {
+                    service.config = JSON.parse(config!);
+                }
+                manifest.services = [service];
             }
-            if (config) {
-                service.config = JSON.parse(config!);
-            }
-            manifest.services = [service];
         }
 
         // Return modified JSON to client
@@ -129,3 +148,4 @@ export function createCustomManifestMiddleware(): RequestHandler {
         res.send(JSON.stringify(manifest, null, 4));
     };
 }
+

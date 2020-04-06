@@ -1,6 +1,6 @@
 {
   "name": "openfin-service-tooling",
-  "version": "1.0.31",
+  "version": "1.0.32",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -28,6 +28,7 @@
   "homepage": "https://github.com/HadoukenIO/service-tooling",
   "dependencies": {
     "@types/execa": "^0.9.0",
+    "@types/fs-extra": "^8.1.0",
     "@types/jest": "^24.0.15",
     "@types/rimraf": "^2.0.2",
     "@types/webpack": "^4.4.35",
@@ -59,7 +60,6 @@
     "mini-css-extract-plugin": "^0.8.0",
     "node-fetch": "^2.6.0",
     "node-sass": "^4.13.1",
-    "openfin-service-config": "^1.0.1",
     "rimraf": "^2.6.3",
     "sass-jest": "^0.1.7",
     "sass-loader": "^7.1.0",
@@ -84,8 +84,9 @@
     "@types/node-fetch": "^2.3.7",
     "@types/openfin": "^43.0.1",
     "@types/webpack-dev-middleware": "^2.0.3",
-    "hadouken-js-adapter": "^0.39.1",
+    "hadouken-js-adapter": "^1.44.1",
     "mkdirp": "^0.5.1",
+    "openfin-service-config": "^1.0.3",
     "openfin-service-signal": "^1.0.0",
     "pre-commit": "^1.2.2",
     "typescript": "^3.7.5"

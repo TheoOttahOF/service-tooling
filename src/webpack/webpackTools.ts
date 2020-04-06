@@ -3,10 +3,11 @@ import * as MiniCssExtractPlugin from 'mini-css-extract-plugin';
 import * as webpack from 'webpack';
 import * as ForkTsCheckerWebpackPlugin from 'fork-ts-checker-webpack-plugin';
 
+import {getManifest, RewriteContext} from '../utils/getManifest';
+import {getRootDirectory} from '../utils/getRootDirectory';
 import {getProjectConfig} from '../utils/getProjectConfig';
 import {getProjectPackageJson} from '../utils/getProjectPackageJson';
-import {getRootDirectory} from '../utils/getRootDirectory';
-import {getManifest, RewriteContext} from '../utils/getManifest';
+import {getProviderPath} from '../utils/manifest';
 
 /**
  * Custom options which can be passed into webpack.
@@ -150,14 +151,14 @@ export function createConfig(outPath: string, entryPoint: string | webpack.Entry
  * Will be removed once the RVM supports relative paths within app.json files
  */
 export const manifestPlugin = (() => {
-    const {IS_SERVICE, VERSION} = getProjectConfig();
+    const {VERSION} = getProjectConfig();
 
     return new CopyWebpackPlugin([{
-        from: IS_SERVICE ? './res/provider/app.json' : './res/app.json',
+        from: getProviderPath(),
         to: '.',
         transform: (content, path) => {
             // Run the manifest through 'getManifest', to replace any ${} params
-            const config = getManifest(path, RewriteContext.DEPLOY, VERSION || 'default');
+            const config = getManifest(path, RewriteContext.DEPLOY, {providerVersion: VERSION || 'default'});
             return JSON.stringify(config, null, 4);
         }
     }]);

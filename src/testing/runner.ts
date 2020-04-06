@@ -9,6 +9,7 @@ import {CLITestArguments} from '../types';
 import {Hook, allowHook} from '../utils/allowHook';
 import {getModuleRoot} from '../utils/getModuleRoot';
 import {getProjectConfig} from '../utils/getProjectConfig';
+import {prepareRuntime} from '../utils/runtime';
 
 let port: number;
 let success: boolean = false;
@@ -44,21 +45,27 @@ export function runIntegrationTests(customJestArgs: string[], cliArgs: CLITestAr
     ]);
 
     createServer()
-        .then((app) => {
-            allowHook(Hook.TEST_MIDDLEWARE)(app);
+        .then(async (app) => {
+            await allowHook(Hook.TEST_MIDDLEWARE)(app);
             return createDefaultMiddleware(app, cliArgs);
         })
         .then(startServer)
         .then(async () => {
             port = await launch({manifestUrl: `http://localhost:${getProjectConfig().PORT}/test/test-app-main.json`});
             console.log(`Openfin running on port ${port}`);
+
+            await prepareRuntime(cliArgs);
+
             return port;
         })
         .catch((error) => {
             console.error(error);
             throw new Error();
         })
-        .then((OF_PORT) => run('jest', jestArgs, {env: {OF_PORT: (OF_PORT as number).toString()}}))
+        .then((OF_PORT) => run('jest', jestArgs, {env: {
+            OF_PORT: (OF_PORT as number).toString(),
+            CLI_ARGS: JSON.stringify(cliArgs)
+        }}))
         .then((res) => {
             success = !res.failed;
         })

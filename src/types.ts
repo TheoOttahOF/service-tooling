@@ -15,6 +15,15 @@ export interface CLIArguments {
     providerVersion: string;
 
     /**
+     * Starts the provider from an ASAR, rather than as a desktop service.
+     *
+     * Can only be used if RUNTIME_INJECTABLE is defined in project config. Note that this makes debugging of the
+     * provider more difficult, as it will run from an ASAR injected into a custom runtime rather than as a "standard"
+     * web app.
+     */
+    asar: boolean;
+
+    /**
      * The mode to use for webpack, either 'development' (default) or 'production'.
      */
     mode: WebpackMode;
@@ -24,7 +33,7 @@ export interface CLIArguments {
      *
      * Otherwise will build and start the local server, but not automatically launch any applications.
      */
-    noDemo: boolean;
+    demo: boolean;
 
     /**
      * Rather than building the application via webpack (and then watching for any source file changes), will launch the
@@ -39,12 +48,17 @@ export interface CLIArguments {
      * By default, webpack-dev-server builds and serves files from memory without writing to disk.
      * Using this option will also write the output to the 'dist' folder, as if running one of the 'build' scripts.
      */
-    writeToDisk: boolean;
+    write: boolean;
 
     /**
      * Sets the runtime version to be used in place of values in loaded app.json files.
      */
     runtime?: string;
+
+    /**
+     * Run the demo in a platform window.
+     */
+    platform: boolean;
 }
 
 export interface BuildCommandArgs {
