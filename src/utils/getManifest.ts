@@ -4,9 +4,12 @@ import {CLIArguments} from '../types';
 
 import {getProjectConfig} from './getProjectConfig';
 import {getJsonFileSync} from './getJsonFile';
-import {getProviderUrl} from './manifest';
-import {replaceUrlParams} from './url';
+import {getProviderPath, getProviderUrl} from './manifest';
 import {ClassicManifest, PlatformManifest, ServiceDeclaration} from './manifests';
+import {resolveRuntimeVersion} from './runtime';
+import {replaceUrlParams} from './url';
+
+let providerRuntime: string;
 
 export enum RewriteContext {
     /**
@@ -46,11 +49,11 @@ type StartupAppWithInjection = ClassicManifest['startup_app'] & {[key: string]: 
  * @param context Determines how CDN urls are handled, see {@link RewriteContext}
  * @param args The subset of CLI args that require manifest overrides, these will be applied to any manifests processed by this middleware
  */
-export function getManifest(
+export async function getManifest(
     configPath: string,
     context: RewriteContext,
     args: Pick<Partial<CLIArguments>, 'providerVersion' | 'asar' | 'runtime'>
-): ClassicManifest {
+): Promise<ClassicManifest> {
     const {providerVersion, asar, runtime} = {providerVersion: 'default', asar: false, runtime: '', ...args};
     const {PORT, NAME, CDN_LOCATION, IS_SERVICE, RUNTIME_INJECTABLE} = getProjectConfig();
     let runtimeVersion = runtime;
@@ -65,6 +68,19 @@ export function getManifest(
 
     const serviceDefinition = (config.services || []).find((service) => service.name === NAME);
     const {startup_app: startupApp, shortcut} = config;
+
+    // Handle mapping of runtime versions, when using runtime injection
+    if (asar) {
+        // Get required runtime version (from either CLI or manifest), and resolve any release channels
+        runtimeVersion = runtimeVersion || config.runtime.version;
+        runtimeVersion = await resolveRuntimeVersion(runtimeVersion);
+
+        // Need to tweak the version if there's a "--runtime" override, or this is the same runtime as the provider
+        if (runtime || runtimeVersion === getProviderRuntime()) {
+            // Will need to run on a custom runtime version for ASAR to contain the latest provider code
+            runtimeVersion = runtimeVersion.replace(runtimeVersion.split('.')[0], PORT.toString());
+        }
+    }
 
     // Edit manifest
     if (startupApp.url) {
@@ -85,10 +101,6 @@ export function getManifest(
 
             // Replace service declaration with '<NAME>Api' flag
             annotateAppWithService(startupApp, serviceDefinition, providerVersion);
-
-            // Will need to run on a custom runtime version for ASAR to contain the latest provider code
-            runtimeVersion = runtimeVersion || config.runtime.version;
-            runtimeVersion = runtimeVersion.replace(runtimeVersion.split('.')[0], PORT.toString());
 
             if (config.services!.length === 1) {
                 delete config.services;
@@ -170,4 +182,13 @@ export function annotateAppWithService(application: ClassicManifest['startup_app
     if (!['default', 'stable'].includes(providerVersion)) {
         injectableApp[`${NAME}Manifest`] = getProviderUrl(providerVersion, service.manifestUrl);
     }
+}
+
+function getProviderRuntime(): string {
+    if (!providerRuntime) {
+        const providerManifest: ClassicManifest = getJsonFileSync(getProviderPath());
+        providerRuntime = providerManifest.runtime.version;
+    }
+
+    return providerRuntime;
 }

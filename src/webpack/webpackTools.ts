@@ -156,9 +156,9 @@ export const manifestPlugin = (() => {
     return new CopyWebpackPlugin([{
         from: getProviderPath(),
         to: '.',
-        transform: (content, path) => {
+        transform: async (content, path) => {
             // Run the manifest through 'getManifest', to replace any ${} params
-            const config = getManifest(path, RewriteContext.DEPLOY, {providerVersion: VERSION || 'default'});
+            const config = await getManifest(path, RewriteContext.DEPLOY, {providerVersion: VERSION || 'default'});
             return JSON.stringify(config, null, 4);
         }
     }]);

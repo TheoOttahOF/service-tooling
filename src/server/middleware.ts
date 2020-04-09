@@ -21,7 +21,7 @@ export function createAppJsonMiddleware(args: Pick<CLIArguments, 'providerVersio
         // Parse app.json
         let config: ClassicManifest;
         try {
-            config = getManifest(configPath, RewriteContext.DEBUG, args);
+            config = await getManifest(configPath, RewriteContext.DEBUG, args);
         } catch (e) {
             next();
             return;

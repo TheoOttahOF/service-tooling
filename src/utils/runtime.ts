@@ -12,6 +12,7 @@ import {getProviderPath} from './manifest';
 import {getRootDirectory} from './getRootDirectory';
 
 const RELEASE_CHANNELS = ['stable', 'alpha', 'beta', 'canary', 'canary-next'];
+const releaseChannelMappings: {[key: string]: string} = {};
 
 /**
  * If using a runtime-injected service prepare an ASAR that contains the service, and create a custom version of the
@@ -50,6 +51,9 @@ export async function prepareRuntime(args: CLIArguments): Promise<void> {
 
             if (isChannel) {
                 console.log(`Resolved ${runtime} to ${runtimeVersion}`);
+
+                // Write the mapped runtime version back into CLI args, so it is available downstream
+                args.runtime = runtimeVersion;
             }
         }
 
@@ -87,10 +91,15 @@ export function isReleaseChannel(version: string): boolean {
  * @param version Any valid runtime version or release channel
  */
 export async function resolveRuntimeVersion(version: string): Promise<string> {
-    if (isReleaseChannel(version)) {
-        return installRuntime(version);
-    } else {
+    if (!isReleaseChannel(version)) {
         return version;
+    } else if (releaseChannelMappings.hasOwnProperty(version)) {
+        return releaseChannelMappings[version];
+    } else {
+        const mappedVersion = await installRuntime(version);
+        releaseChannelMappings[version] = mappedVersion;
+
+        return mappedVersion;
     }
 }
 
