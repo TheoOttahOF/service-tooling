@@ -10,6 +10,7 @@ import {Hook, allowHook} from '../utils/allowHook';
 import {getModuleRoot} from '../utils/getModuleRoot';
 import {getProjectConfig} from '../utils/getProjectConfig';
 import {prepareRuntime} from '../utils/runtime';
+import {withTimeout} from '../utils/timeout';
 
 let port: number;
 let success: boolean = false;
@@ -51,10 +52,16 @@ export function runIntegrationTests(customJestArgs: string[], cliArgs: CLITestAr
         })
         .then(startServer)
         .then(async () => {
-            port = await launch({manifestUrl: `http://localhost:${getProjectConfig().PORT}/test/test-app-main.json`});
-            console.log(`Openfin running on port ${port}`);
+            const manifestUrl = `http://localhost:${getProjectConfig().PORT}/test/test-app-main.json`;
 
             await prepareRuntime(cliArgs);
+
+            console.log('Starting test app');
+            const startupTimeoutMillis = 2 * 60 * 1000;
+            port = await withTimeout(launch({manifestUrl}), startupTimeoutMillis, () => {
+                throw new Error(`Test app didn't start after ${startupTimeoutMillis / 1000} seconds`);
+            });
+            console.log(`Openfin running on port ${port}`);
 
             return port;
         })

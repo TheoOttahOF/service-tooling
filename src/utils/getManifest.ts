@@ -6,7 +6,7 @@ import {getProjectConfig} from './getProjectConfig';
 import {getJsonFileSync} from './getJsonFile';
 import {getProviderPath, getProviderUrl} from './manifest';
 import {ClassicManifest, PlatformManifest, ServiceDeclaration} from './manifests';
-import {resolveRuntimeVersion} from './runtime';
+import {isRuntimeInstalled, mapRuntimeVersion, resolveRuntimeVersion} from './runtime';
 import {replaceUrlParams} from './url';
 
 let providerRuntime: string;
@@ -78,7 +78,12 @@ export async function getManifest(
         // Need to tweak the version if there's a "--runtime" override, or this is the same runtime as the provider
         if (runtime || runtimeVersion === getProviderRuntime()) {
             // Will need to run on a custom runtime version for ASAR to contain the latest provider code
-            runtimeVersion = runtimeVersion.replace(runtimeVersion.split('.')[0], PORT.toString());
+            runtimeVersion = mapRuntimeVersion(runtimeVersion);
+
+            // Warn if runtime isn't installed
+            if (!isRuntimeInstalled(runtime)) {
+                console.warn(`Creating a manifest that uses runtime ${runtime}, but that runtime is not currently installed`);
+            }
         }
     }
 

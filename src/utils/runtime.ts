@@ -8,8 +8,9 @@ import {connect} from 'hadouken-js-adapter';
 import {CLIArguments} from '../types';
 
 import {getProjectConfig} from './getProjectConfig';
-import {getProviderPath} from './manifest';
 import {getRootDirectory} from './getRootDirectory';
+import {getProviderPath} from './manifest';
+import {withTimeout} from './timeout';
 
 const RELEASE_CHANNELS = ['stable', 'alpha', 'beta', 'canary', 'canary-next'];
 const releaseChannelMappings: {[key: string]: string} = {};
@@ -39,21 +40,25 @@ export async function prepareRuntime(args: CLIArguments): Promise<void> {
         let runtimeVersion = runtime;
 
         if (isChannel || !isRuntimeInstalled(runtime)) {
-            console.log(isChannel ? `Converting channel ${runtime} to build number` : `Runtime ${runtime} not installed, starting download...`);
-            const timeout = isChannel
-                ? setTimeout(() => {
-                    console.log('Resolution is taking a while, runtime probably isn\'t installed...');
-                }, 1500)
-                : undefined;
-
-            runtimeVersion = await installRuntime(runtime);
-            clearTimeout(timeout!);
-
+            // Both of these branches perform the same action, but for different reasons. Handled separately to better explain what is happening.
             if (isChannel) {
+                console.log(`Converting channel ${runtime} to build number`);
+                const expectedLookupTimeMillis = 2500;
+                runtimeVersion = await withTimeout(installRuntime(runtime), expectedLookupTimeMillis, (action) => {
+                    // Log message to explain delay
+                    console.log('Resolution is taking a while, runtime probably isn\'t installed...');
+
+                    // Continue waiting for runtime
+                    return action;
+                });
                 console.log(`Resolved ${runtime} to ${runtimeVersion}`);
 
                 // Write the mapped runtime version back into CLI args, so it is available downstream
                 args.runtime = runtimeVersion;
+            } else {
+                console.log(`Runtime ${runtime} not installed, starting download...`);
+                runtimeVersion = await installRuntime(runtime);
+                console.log(`Runtime ${runtime} installed.`);
             }
         }
 
@@ -96,7 +101,13 @@ export async function resolveRuntimeVersion(version: string): Promise<string> {
     } else if (releaseChannelMappings.hasOwnProperty(version)) {
         return releaseChannelMappings[version];
     } else {
-        const mappedVersion = await installRuntime(version);
+        const mappedVersion = await withTimeout(installRuntime(version), 1500, (action) => {
+            // Log message to explain delay
+            console.log('Resolution is taking a while, runtime probably isn\'t installed...');
+
+            // Continue waiting for runtime
+            return action;
+        });
         releaseChannelMappings[version] = mappedVersion;
 
         return mappedVersion;
@@ -128,6 +139,13 @@ export function mapRuntimeVersion(version: string): string {
  * @param version Any valid runtime version number or release channel
  */
 export async function installRuntime(version: string): Promise<string> {
+    // Do NOT use this util with "mapped" runtime versions - this results in a hang.
+    // Should never happen, but adding explicit check as it is hard to track down if/when it does happen.
+    const versionParts = version.split('.');
+    if (versionParts.length === 4 && versionParts[0] === getProjectConfig().PORT.toString()) {
+        throw new Error(`Must not use installRuntime with mapped runtime versions (attempted to install ${version})`);
+    }
+
     // Use the JS adapter to start an application on this runtime, then immediately exit
     const connection = await connect({
         uuid: 'temp-app',
