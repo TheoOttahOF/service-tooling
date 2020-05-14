@@ -159,6 +159,14 @@ export function getProjectConfig<T extends Config = Config>(): Readonly<T> {
 }
 
 function parseCLIArg<T>(input: string, defaultValue: T): T {
+    // Handle specific special-case values
+    if (input === 'null') {
+        return null!;
+    } else if (input === 'undefined') {
+        return undefined!;
+    }
+
+    // Parse input according to the type of the default arg
     switch (typeof defaultValue) {
         case 'string':
             return input as unknown as T;

@@ -7,6 +7,7 @@ import {CLIArguments} from '../types';
 import {getProjectConfig} from '../utils/getProjectConfig';
 import {getProviderUrl, getManifest} from '../utils/manifest';
 import {getRootDirectory} from '../utils/getRootDirectory';
+import {join, replaceUrlParams} from '../utils/url';
 import {executeWebpack} from '../webpack/executeWebpack';
 
 import {createAppJsonMiddleware, createCustomManifestMiddleware} from './middleware';
@@ -101,16 +102,17 @@ export async function startApplication(args: CLIArguments) {
 
 function getStartupManifest(): string {
     const {PORT, MANIFEST, IS_SERVICE} = getProjectConfig();
+    const manifest = MANIFEST && replaceUrlParams(MANIFEST);
 
-    if (!MANIFEST) {
+    if (!manifest) {
         // No project-specific manifestUrl
         return IS_SERVICE ? `http://localhost:${PORT}/demo/app.json` : `http://localhost:${PORT}/app.json`;
-    } else if (MANIFEST.includes('://')) {
+    } else if (manifest.includes('://')) {
         // Fully-qualified manifestUrl
-        return MANIFEST;
+        return manifest;
     } else {
         // Prepend base URL to custom manifest path
-        return `http://localhost:${PORT}${MANIFEST.startsWith('/') ? '' : '/'}${MANIFEST}`;
+        return join(`http://localhost:${PORT}`, manifest);
     }
 }
 
