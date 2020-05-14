@@ -28,7 +28,7 @@ export function createAppJsonMiddleware(args: Pick<CLIArguments, 'providerVersio
         }
 
         // If this is the provider manifest, ensure window is always visible
-        if (configPath.indexOf('/provider/') && config.startup_app?.autoShow === false) {
+        if (isProvider && config.startup_app?.autoShow === false) {
             config.startup_app.autoShow = true;
         }
 

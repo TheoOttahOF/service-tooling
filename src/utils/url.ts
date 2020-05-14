@@ -1,5 +1,6 @@
 import {getProjectConfig, Config} from './getProjectConfig';
 
+const doubleSlashes: RegExp = /\/\//g;
 const trailingSlash: RegExp = /\/$/;
 const trimFragment: RegExp = /^\/*(.*?)\/*$/;
 
@@ -27,7 +28,7 @@ export function join(...fragments: string[]): string {
  * @param urlTemplate A valid URL, or string template that resolves to a valid URL
  * @param overrideArgs Optional config overrides, to apply before evaluating template
  */
-export function replaceUrlParams(urlTemplate: string, overrideArgs?: Partial<Config>) {
+export function replaceUrlParams(urlTemplate: string, overrideArgs?: Partial<Config>): string {
     if (urlTemplate.indexOf('${') === -1) {
         // Not a template, just a "plain" URL
         return urlTemplate;
@@ -48,6 +49,15 @@ export function replaceUrlParams(urlTemplate: string, overrideArgs?: Partial<Con
             templateCache[urlTemplate] = templateFunc;
         }
 
-        return templateFunc(...Object.values(params)).replace(trailingSlash, '');
+        // Apply template
+        const result = templateFunc(...Object.values(params));
+
+        // Sanitize resulting URL
+        const url = new URL(result);
+        url.pathname = url.pathname
+            .replace(trailingSlash, '')
+            .replace(doubleSlashes, '/');
+
+        return url.toString();
     }
 }

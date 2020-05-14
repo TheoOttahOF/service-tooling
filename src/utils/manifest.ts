@@ -46,9 +46,11 @@ export function getProviderUrl(version: string, manifestUrl?: string): string {
         } else if (version === 'stable') {
             // Use the latest stable version
             url = `${CDN_LOCATION}/app.json`;
+            overrideArgs.VERSION = '';
         } else if (version === 'staging') {
             // Use the latest staging build
             url = `${CDN_LOCATION}/app.staging.json`;
+            overrideArgs.VERSION = '';
         } else if (version === 'testing') {
             // Use the optional testing provider if exists.
             const testingProviderResponse = existsSync(join(getRootDirectory(), 'res/test/provider.json'));
@@ -68,6 +70,9 @@ export function getProviderUrl(version: string, manifestUrl?: string): string {
         } else {
             throw new Error(`Not a valid version number or channel: ${version}`);
         }
+
+        // Apply template params
+        url = replaceUrlParams(url, overrideArgs);
 
         // Cache URL, to avoid duplicate filesystem reads/regexes/etc
         urlCache[version] = replaceUrlParams(url);

@@ -52,7 +52,7 @@ type StartupAppWithInjection = ClassicManifest['startup_app'] & {[key: string]: 
 export async function getManifest(
     configPath: string,
     context: RewriteContext,
-    args: Pick<Partial<CLIArguments>, 'providerVersion' | 'asar' | 'runtime'>
+    args: Pick<Partial<CLIArguments>, 'providerVersion' | 'asar' | 'runtime'> = {}
 ): Promise<ClassicManifest> {
     const {providerVersion, asar, runtime} = {providerVersion: 'default', asar: false, runtime: '', ...args};
     const {PORT, NAME, CDN_LOCATION, IS_SERVICE, RUNTIME_INJECTABLE} = getProjectConfig();
